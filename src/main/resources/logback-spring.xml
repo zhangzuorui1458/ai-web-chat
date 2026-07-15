@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    日志配置：
+      - 控制台输出（开发期）
+      - 文件按天滚动 + 单文件 50MB 切分
+      - 仅保留最近 2 天归档日志（maxHistory=2）
+      - 启动时自动清理过期归档（cleanHistoryOnStart=true）
+      - 归档总大小上限 500MB（totalSizeCap=500MB）
+-->
+<configuration>
+
+    <property name="LOG_PATH" value="logs"/>
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{40} - %msg%n"/>
+
+    <!-- 控制台 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 文件：按天 + 按大小滚动，保留 2 天 -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/ai-web-chat.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- 归档文件名：按天命名，%i 为同一天内按大小切分的序号 -->
+            <fileNamePattern>${LOG_PATH}/ai-web-chat-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- 保留 2 天归档 -->
+            <maxHistory>2</maxHistory>
+            <!-- 单个日志文件最大 50MB -->
+            <maxFileSize>50MB</maxFileSize>
+            <!-- 所有归档总大小上限 -->
+            <totalSizeCap>500MB</totalSizeCap>
+            <!-- 启动时清理过期归档 -->
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 降低噪音日志级别 -->
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="org.hibernate.SQL" level="WARN"/>
+    <logger name="org.hibernate.orm.deployment" level="WARN"/>
+    <logger name="com.h2database" level="WARN"/>
+    <logger name="org.apache.catalina" level="WARN"/>
+    <logger name="org.apache.coyote" level="WARN"/>
+    <logger name="org.springframework.web.socket" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+</configuration>
