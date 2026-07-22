@@ -3227,6 +3227,59 @@ function applyBubbleColor(colorKey) {
         enterMainPage();
     }
 })();
+
+// ================================================================
+// Android 返回键拦截协议：按优先级关闭当前最上层浮层。
+// 返回 true 表示前端已处理（关闭了某浮层），返回 false 让 app 退出。
+// 由 WebView 套壳在 canGoBack()=false 时调用。
+// ================================================================
+window.handleNativeBack = function () {
+    try {
+        // 1. 图片灯箱（z-index 最高 500）
+        var lightbox = document.getElementById('lightbox');
+        if (lightbox && lightbox.classList.contains('show')) {
+            closeLightbox();
+            return true;
+        }
+        // 2. 通用 modal（好友申请/群邀请/创建群/邀请入群/个人信息/收藏/笔记编辑）
+        var modal = document.getElementById('modal-overlay');
+        if (modal && modal.classList.contains('show')) {
+            closeModal();
+            return true;
+        }
+        // 3. 聊天搜索栏
+        var searchBar = document.getElementById('search-bar');
+        if (searchBar && searchBar.classList.contains('show')) {
+            closeSearchBar();
+            return true;
+        }
+        // 4. 表情面板
+        var emojiPanel = document.getElementById('emoji-panel');
+        if (emojiPanel && emojiPanel.classList.contains('show')) {
+            closeEmojiPanel();
+            return true;
+        }
+        // 5. 详情面板
+        var detailPanel = document.getElementById('detail-panel');
+        var detailOpen = detailPanel && detailPanel.classList.contains('show')
+            || (typeof State !== 'undefined' && State.detailPanelOpen);
+        if (detailOpen) {
+            if (detailPanel) detailPanel.classList.remove('show');
+            if (typeof State !== 'undefined') State.detailPanelOpen = false;
+            return true;
+        }
+        // 6. 移动端聊天视图抽屉（chat-area 滑入覆盖列表）
+        var layout = document.querySelector('.layout');
+        if (layout && layout.classList.contains('mobile-chat-open')) {
+            if (typeof backToList === 'function') backToList();
+            else layout.classList.remove('mobile-chat-open');
+            return true;
+        }
+    } catch (e) {
+        console.warn('handleNativeBack error:', e);
+    }
+    return false;
+};
 </script>
 
 </body>
