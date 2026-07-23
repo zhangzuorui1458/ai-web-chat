@@ -2117,6 +2117,12 @@ function updateBadges() {
     // 会话总未读
     let totalUnread = 0;
     State.unreadMap.forEach(count => { totalUnread += count; });
+
+    // Android WebView 套壳：同步启动器图标角标（传 0 自动清除）
+    if (window.AndroidBridge && typeof AndroidBridge.setBadge === 'function') {
+        try { AndroidBridge.setBadge(totalUnread); } catch (e) {}
+    }
+
     const sessionBadge = document.getElementById('badge-sessions');
     if (totalUnread > 0) {
         sessionBadge.style.display = 'inline';
@@ -2195,7 +2201,6 @@ function playMessageSound() {
 }
 
 function showNotification(msg) {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
     const senderName = msg.senderName || '新消息';
     const body = previewText(msg);
     let tag;
@@ -2204,6 +2209,17 @@ function showNotification(msg) {
     } else {
         tag = 'awc-g-' + msg.groupId;
     }
+
+    // Android WebView 套壳环境：走原生系统通知 + 图标角标
+    if (window.AndroidBridge && typeof AndroidBridge.showNotification === 'function') {
+        try {
+            AndroidBridge.showNotification(senderName, body, tag);
+        } catch (e) {}
+        return; // 已交给原生层，不再走浏览器 Notification
+    }
+
+    // 浏览器环境：Web Notification API
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
     try {
         const n = new Notification(senderName, {
             body: body,
