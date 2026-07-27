@@ -12,16 +12,28 @@ ai-web-chat is a Spring Boot 4.0.6 application (Java 17) implementing a browser-
 
 ## Build & Run Commands
 
+> ⚠️ Claude Code 在 Windows 上跑的是 bash 沙箱，**直接执行 `mvnw.cmd` 会报 `command not found`**。
+> 必须用 `cmd //c` 显式调用 Windows cmd，且 `mvnw.cmd` 要写成相对路径 `.\mvnw.cmd`，否则会被当成 PATH 中的命令而找不到。
+>
+> 以下为 **Claude Code 内可直接复用的命令**（无需再调整）：
+
 ```bash
-# Build (Windows)
-mvnw.cmd clean install
+# 打包（跳过测试，Spring Boot 可执行 jar）
+cmd //c "cd /d D:\myproject\ai-web-chat && .\mvnw.cmd clean package -DskipTests"
 
-# Run (Windows)
-mvnw.cmd spring-boot:run
+# 完整构建（含测试）
+cmd //c "cd /d D:\myproject\ai-web-chat && .\mvnw.cmd clean install"
 
-# Run tests
-mvnw.cmd test
+# 运行
+cmd //c "cd /d D:\myproject\ai-web-chat && .\mvnw.cmd spring-boot:run"
+
+# 仅跑测试
+cmd //c "cd /d D:\myproject\ai-web-chat && .\mvnw.cmd test"
 ```
+
+产物路径：`D:\myproject\ai-web-chat\target\ai-web-chat-0.0.1-SNAPSHOT.jar`
+
+> 用户在 PowerShell / cmd 终端手动执行时，仍可直接用 `mvnw.cmd clean package -DskipTests`，无需上述 `cmd //c` 前缀。
 
 After startup, open `http://localhost:8080` in a browser. H2 console is at `http://localhost:8080/h2-console` (JDBC URL `jdbc:h2:file:./data/webchat`).
 
