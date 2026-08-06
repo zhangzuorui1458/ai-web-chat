@@ -3,12 +3,14 @@ package com.aiwebchat.controller;
 import com.aiwebchat.dto.*;
 import com.aiwebchat.entity.User;
 import com.aiwebchat.security.CurrentUser;
+import com.aiwebchat.service.FileService;
 import com.aiwebchat.service.GroupService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,7 @@ import java.util.Map;
 public class GroupController {
 
     private final GroupService groupService;
+    private final FileService fileService;
 
     @PostMapping
     public ResponseEntity<GroupVO> create(@Valid @RequestBody GroupCreateRequest request,
@@ -36,6 +39,25 @@ public class GroupController {
     @GetMapping("/{groupId}/members")
     public ResponseEntity<List<UserVO>> members(@PathVariable("groupId") Long groupId) {
         return ResponseEntity.ok(groupService.listMembers(groupId));
+    }
+
+    @PutMapping("/{groupId}")
+    public ResponseEntity<Map<String, String>> updateGroup(@PathVariable("groupId") Long groupId,
+                                                            @RequestBody Map<String, String> body,
+                                                            HttpServletRequest httpRequest) {
+        User current = CurrentUser.get(httpRequest);
+        groupService.updateGroupInfo(groupId, current.getId(), body.get("name"), body.get("avatar"));
+        return ResponseEntity.ok(Map.of("message", "已更新"));
+    }
+
+    @PostMapping("/{groupId}/avatar")
+    public ResponseEntity<Map<String, String>> uploadGroupAvatar(@PathVariable("groupId") Long groupId,
+                                                                  @RequestParam("file") MultipartFile file,
+                                                                  HttpServletRequest httpRequest) {
+        User current = CurrentUser.get(httpRequest);
+        AttachmentVO attachment = fileService.upload(file);
+        groupService.updateGroupInfo(groupId, current.getId(), null, attachment.getUrl());
+        return ResponseEntity.ok(Map.of("url", attachment.getUrl()));
     }
 
     @PostMapping("/{groupId}/members/{userId}")

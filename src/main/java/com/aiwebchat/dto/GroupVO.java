@@ -15,6 +15,7 @@ public class GroupVO {
 
     private Long id;
     private String name;
+    private String avatar;
     private Long ownerId;
     private Integer memberCount;
     private LocalDateTime createTime;

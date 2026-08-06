@@ -180,6 +180,17 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
+    public void updateProfile(Long userId, String signature) {
+        if (signature != null && signature.length() > 200) {
+            throw BusinessException.badRequest("签名最长 200 字");
+        }
+        User user = getUserById(userId);
+        user.setSignature(signature);
+        userRepository.save(user);
+    }
+
+    @Override
     public UserVO getCurrentUserInfo(Long userId) {
         return toVO(getUserById(userId));
     }
@@ -190,6 +201,7 @@ public class UserServiceImpl implements UserService {
                 .username(u.getUsername())
                 .nickname(u.getNickname())
                 .avatar(u.getAvatar())
+                .signature(u.getSignature())
                 .build();
     }
 }

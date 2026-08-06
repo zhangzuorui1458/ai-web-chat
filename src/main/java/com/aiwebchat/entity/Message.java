@@ -60,6 +60,12 @@ public class Message {
     @Column(name = "attachment_thumb", length = 512)
     private String attachmentThumb;
 
+    @Column(name = "audio_duration")
+    private Integer audioDuration;
+
+    @Column(name = "mention_user_ids", length = 200)
+    private String mentionUserIds;
+
     @Column(length = 16)
     @Enumerated(EnumType.STRING)
     @Builder.Default
@@ -76,7 +82,7 @@ public class Message {
     }
 
     public enum ContentType {
-        TEXT, IMAGE, FILE, EMOJI, RECALL_NOTICE
+        TEXT, IMAGE, FILE, EMOJI, AUDIO, RECALL_NOTICE
     }
 
     public enum Status {

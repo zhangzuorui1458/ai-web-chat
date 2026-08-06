@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -28,4 +30,6 @@ public class MessageSendRequest {
     private String attachmentName;
     private Long attachmentSize;
     private String attachmentThumb;
+    private Integer audioDuration;
+    private List<Long> mentionUserIds;
 }

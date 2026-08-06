@@ -49,7 +49,7 @@ public class MessageServiceImpl implements MessageService {
             if (request.getContent() == null || request.getContent().isBlank()) {
                 throw BusinessException.badRequest("消息内容不能为空");
             }
-        } else if (contentType == Message.ContentType.IMAGE || contentType == Message.ContentType.FILE) {
+        } else if (contentType == Message.ContentType.IMAGE || contentType == Message.ContentType.FILE || contentType == Message.ContentType.AUDIO) {
             if (request.getAttachmentUrl() == null || request.getAttachmentUrl().isBlank()) {
                 throw BusinessException.badRequest("附件 URL 不能为空");
             }
@@ -115,8 +115,24 @@ public class MessageServiceImpl implements MessageService {
                 .attachmentName(request.getAttachmentName())
                 .attachmentSize(request.getAttachmentSize())
                 .attachmentThumb(request.getAttachmentThumb() != null ? request.getAttachmentThumb() : request.getAttachmentUrl())
+                .audioDuration(request.getAudioDuration())
+                .mentionUserIds(joinMentions(request.getMentionUserIds()))
                 .status(Message.Status.NORMAL)
                 .build();
+    }
+
+    private String joinMentions(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return null;
+        return ids.stream().distinct().map(String::valueOf).collect(Collectors.joining(","));
+    }
+
+    private List<Long> parseMentions(String raw) {
+        if (raw == null || raw.isBlank()) return Collections.emptyList();
+        return Arrays.stream(raw.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(s -> "all".equals(s) ? -1L : Long.parseLong(s))
+                .toList();
     }
 
     // ==================== 历史消息 ====================
@@ -364,6 +380,7 @@ public class MessageServiceImpl implements MessageService {
             case TEXT, EMOJI -> m.getContent();
             case IMAGE -> "[图片]";
             case FILE -> "[文件] " + (m.getAttachmentName() != null ? m.getAttachmentName() : "");
+            case AUDIO -> "[语音]";
             case RECALL_NOTICE -> "消息已撤回";
         };
     }
@@ -416,6 +433,8 @@ public class MessageServiceImpl implements MessageService {
                 .recalledAt(m.getRecalledAt())
                 .sendTime(m.getSendTime())
                 .read(read)
+                .mentionUserIds(parseMentions(m.getMentionUserIds()))
+                .audioDuration(m.getAudioDuration())
                 .build();
     }
 }

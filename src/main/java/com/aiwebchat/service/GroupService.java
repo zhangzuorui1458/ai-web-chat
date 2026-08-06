@@ -14,6 +14,8 @@ public interface GroupService {
 
     List<UserVO> listMembers(Long groupId);
 
+    void updateGroupInfo(Long groupId, Long operatorId, String name, String avatar);
+
     void inviteMember(Long groupId, Long targetUserId);
 
     // 群邀请审批流

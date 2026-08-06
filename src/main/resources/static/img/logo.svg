@@ -1,83 +1,65 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <defs>
-    <!-- 主气泡蜜桃日落渐变（温暖亲和） -->
-    <linearGradient id="bubbleGrad" x1="0" y1="0" x2="0.7" y2="1">
-      <stop offset="0%" stop-color="#FFD09C"/>
-      <stop offset="50%" stop-color="#FF9472"/>
-      <stop offset="100%" stop-color="#FF5E8A"/>
-    </linearGradient>
-    <!-- 顶部柔和高光 -->
-    <radialGradient id="topGloss" cx="0.35" cy="0.2" r="0.55">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.55"/>
-      <stop offset="60%" stop-color="#FFFFFF" stop-opacity="0.08"/>
-      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
-    </radialGradient>
-    <!-- 左侧边缘高光 -->
-    <linearGradient id="edgeGloss" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35"/>
-      <stop offset="30%" stop-color="#FFFFFF" stop-opacity="0"/>
-    </linearGradient>
-    <!-- 柔和投影 -->
-    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="1.8"/>
-      <feOffset dx="0" dy="2.5"/>
-      <feComponentTransfer><feFuncA type="linear" slope="0.28"/></feComponentTransfer>
-      <feMerge>
-        <feMergeNode/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="120 200 800 720">
+  <!-- soft clouds -->
+  <g fill="#FFFFFF" opacity="0.18">
+    <circle cx="180" cy="260" r="60"/>
+    <circle cx="250" cy="240" r="44"/>
+    <circle cx="850" cy="330" r="50"/>
+    <circle cx="905" cy="310" r="36"/>
+  </g>
 
-  <!-- 主气泡：圆润造型 + 尾尖朝左下 -->
-  <path d="M 13 27
-           Q 13 11 32 11
-           Q 51 11 51 27
-           Q 51 43 32 43
-           Q 28 43 25 42
-           L 19 49.5
-           Q 16.5 51.5 15.8 48.5
-           L 14.8 41
-           Q 13 38.5 13 27 Z"
-        fill="url(#bubbleGrad)" filter="url(#softShadow)"/>
+  <!-- ============ PLANE ============ -->
+  <g>
+    <!-- tail fin -->
+    <path d="M268 640 L196 500 Q188 482 210 482 L276 482 L336 630 Z" fill="#FFFFFF"/>
+    <path d="M236 560 L210 505 L246 505 L272 560 Z" fill="#2F5BC0" opacity="0.9"/>
 
-  <!-- 顶部柔和高光层 -->
-  <path d="M 13 27
-           Q 13 11 32 11
-           Q 51 11 51 27
-           Q 51 43 32 43
-           Q 28 43 25 42
-           L 19 49.5
-           Q 16.5 51.5 15.8 48.5
-           L 14.8 41
-           Q 13 38.5 13 27 Z"
-        fill="url(#topGloss)"/>
+    <!-- fuselage -->
+    <path d="M168 692 Q168 624 330 614 L724 602 Q884 602 884 682 Q884 762 724 766 L330 770 Q168 766 168 692 Z" fill="#FFFFFF"/>
+    <!-- belly shade -->
+    <path d="M180 716 Q230 768 340 770 L720 766 Q830 760 872 706 Q850 792 720 800 L340 800 Q210 794 180 716 Z" fill="#D9E7FA"/>
 
-  <!-- 左侧边缘高光（增加立体感） -->
-  <path d="M 13 27
-           Q 13 11 32 11
-           Q 38 11 42.5 13
-           Q 24 12 18 22
-           Q 14.5 30 15.8 41
-           L 14.8 41
-           Q 13 38.5 13 27 Z"
-        fill="url(#edgeGloss)"/>
+    <!-- wing -->
+    <path d="M440 766 L338 884 Q324 902 354 902 L492 902 L600 768 Z" fill="#FFFFFF"/>
+    <path d="M600 768 L492 902 L440 902 L540 768 Z" fill="#D9E7FA"/>
 
-  <!-- Q 萌笑脸：两只大眼睛 + 高光点 -->
-  <circle cx="25" cy="26" r="3.2" fill="#FFFFFF"/>
-  <circle cx="39" cy="26" r="3.2" fill="#FFFFFF"/>
-  <!-- 眼睛瞳孔高光（小黑点增加灵动感） -->
-  <circle cx="26.2" cy="25" r="1.1" fill="#0A2540"/>
-  <circle cx="40.2" cy="25" r="1.1" fill="#0A2540"/>
-  <circle cx="25.7" cy="24.5" r="0.4" fill="#FFFFFF"/>
-  <circle cx="39.7" cy="24.5" r="0.4" fill="#FFFFFF"/>
+    <!-- cockpit window -->
+    <path d="M758 626 Q842 634 862 672 Q800 666 750 656 Q744 636 758 626 Z" fill="#2F5BC0"/>
 
-  <!-- 微笑曲线 -->
-  <path d="M 25 32 Q 32 37.5 39 32"
-        stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <!-- passenger windows -->
+    <circle cx="468" cy="684" r="17" fill="#2F5BC0"/>
+    <circle cx="552" cy="681" r="17" fill="#2F5BC0"/>
+    <circle cx="636" cy="678" r="17" fill="#2F5BC0"/>
+  </g>
 
-  <!-- 腮红（粉色小圆点，增加 Q 萌感） -->
-  <circle cx="20.5" cy="31.5" r="1.8" fill="#FF6B9D" opacity="0.45"/>
-  <circle cx="43.5" cy="31.5" r="1.8" fill="#FF6B9D" opacity="0.45"/>
+  <!-- ============ CROW ============ -->
+  <g>
+    <!-- raised wing: clean swept crescent -->
+    <path d="M455 540 Q410 400 300 350 Q262 334 272 372 Q300 470 380 540 Q420 566 455 540 Z" fill="#15181F"/>
+
+    <!-- small tucked tail -->
+    <path d="M405 590 Q350 620 322 668 Q314 684 332 678 L418 640 Q432 610 424 588 Z" fill="#15181F"/>
+
+    <!-- body -->
+    <path d="M392 620 Q352 520 392 428 Q434 334 540 334 Q648 334 668 440 Q682 528 632 596 Q580 652 498 652 Q432 652 392 620 Z" fill="#22262F"/>
+
+    <!-- chest highlight -->
+    <path d="M420 560 Q416 480 460 428 Q446 500 470 570 Q445 574 420 560 Z" fill="#31363F" opacity="0.8"/>
+
+    <!-- eye -->
+    <circle cx="556" cy="432" r="34" fill="#FFFFFF"/>
+    <circle cx="564" cy="436" r="17" fill="#15181F"/>
+    <circle cx="570" cy="430" r="6" fill="#FFFFFF"/>
+
+    <!-- beak -->
+    <path d="M604 452 L700 470 Q716 474 706 486 L612 502 Q596 478 604 452 Z" fill="#F5A623"/>
+
+    <!-- feet gripping fuselage -->
+    <path d="M470 650 q-6 18 4 24 M500 652 q-4 18 6 22" stroke="#F5A623" stroke-width="12" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- ============ LETTER (held at beak tip) ============ -->
+  <g transform="rotate(8 745 500)">
+    <rect x="668" y="452" width="150" height="104" rx="12" fill="#FFFFFF"/>
+    <path d="M674 464 L743 518 L812 464" stroke="#2F5BC0" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>

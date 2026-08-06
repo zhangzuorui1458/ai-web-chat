@@ -26,6 +26,14 @@ public class UserController {
         return ResponseEntity.ok(userService.getCurrentUserInfo(current.getId()));
     }
 
+    @PutMapping("/users/me/profile")
+    public ResponseEntity<Map<String, String>> updateProfile(@RequestBody Map<String, String> body,
+                                                              HttpServletRequest request) {
+        User current = CurrentUser.get(request);
+        userService.updateProfile(current.getId(), body.get("signature"));
+        return ResponseEntity.ok(Map.of("message", "已更新"));
+    }
+
     @GetMapping("/users/search")
     public ResponseEntity<List<UserVO>> search(@RequestParam("keyword") String keyword) {
         return ResponseEntity.ok(userService.searchUsers(keyword));

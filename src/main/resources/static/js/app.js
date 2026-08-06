@@ -25,6 +25,9 @@ const State = {
     searchMatches: [],
     searchCurrentIdx: -1,
     favorites: [],
+    currentMentions: [],          // [{ userId, nickname }]
+    groupMembersCache: {},        // { groupId: [UserVO] }
+    recording: null,              // { recorder, stream, chunks, startTime, duration, timer, cancelled }
 };
 
 // ================================================================
@@ -54,6 +57,9 @@ function apiGet(url) { return api(url); }
 function apiPost(url, body) {
     return api(url, { method: 'POST', body: JSON.stringify(body) });
 }
+function apiPut(url, body) {
+    return api(url, { method: 'PUT', body: JSON.stringify(body) });
+}
 function apiDelete(url) { return api(url, { method: 'DELETE' }); }
 function apiUpload(url, file) {
     const formData = new FormData();
@@ -75,6 +81,25 @@ function switchAuthMode() {
     document.getElementById('auth-error').textContent = '';
 }
 
+function validateAuthInput() {
+    const username = document.getElementById('auth-username').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errEl = document.getElementById('auth-error');
+
+    // 长度校验：与 placeholder 提示保持一致（用户名 3-32 字符，密码至少 6 位）
+    // 仅在用户已输入内容时提示，避免刚聚焦就报错
+    if (username && (username.length < 3 || username.length > 32)) {
+        errEl.textContent = '用户名需为 3-32 个字符';
+        return false;
+    }
+    if (password && password.length < 6) {
+        errEl.textContent = '密码至少 6 位';
+        return false;
+    }
+    errEl.textContent = '';
+    return true;
+}
+
 async function handleAuth() {
     const username = document.getElementById('auth-username').value.trim();
     const password = document.getElementById('auth-password').value;
@@ -87,6 +112,9 @@ async function handleAuth() {
         return;
     }
 
+    // 输入长度保护：复用实时校验逻辑，命中则阻止接口调用
+    if (!validateAuthInput()) return;
+
     const btn = document.getElementById('auth-submit');
     btn.disabled = true;
 
@@ -96,6 +124,11 @@ async function handleAuth() {
             State.token = resp.token;
             State.me = { id: resp.userId, username: resp.username, nickname: resp.nickname, avatar: resp.avatar };
             localStorage.setItem('token', State.token);
+            // 拉取完整 profile（含 signature）
+            try {
+                const full = await apiGet('/api/users/me');
+                State.me = full;
+            } catch {}
             localStorage.setItem('me', JSON.stringify(State.me));
             enterMainPage();
         } else {
@@ -296,11 +329,12 @@ function renderSessions(container) {
         if (!allSessions.has(key)) {
             allSessions.set(key, {
                 key, type: 'GROUP', groupId: g.id,
-                title: g.name, lastContent: '',
+                title: g.name, avatar: g.avatar, lastContent: '',
                 lastTime: null, unreadCount: State.unreadMap.get(key) || 0
             });
         } else {
             allSessions.get(key).title = g.name;
+            allSessions.get(key).avatar = g.avatar;
         }
     });
 
@@ -352,7 +386,7 @@ function createSessionItem(conv) {
     else if (conv.lastContentType === 'FILE') previewText = '[文件]';
     else if (conv.lastContentType === 'EMOJI') previewText = '[表情]';
 
-    bottomRow.innerHTML = '<span class="conv-preview">' + escapeHtml(previewText) + '</span>';
+    bottomRow.innerHTML = '<span class="conv-preview' + (conv.hasMention ? ' has-mention' : '') + '">' + escapeHtml(previewText) + '</span>';
     if (unread > 0) {
         const badge = document.createElement('span');
         badge.className = 'conv-unread';
@@ -532,8 +566,11 @@ async function openConversation(conv) {
         const g = State.groups.find(g => g.id === conv.groupId);
         const count = g && g.memberCount ? g.memberCount : '';
         document.getElementById('chat-subtitle').textContent = count ? ('(' + count + '人)') : '';
+        // 预加载群成员缓存供 @ 使用
+        ensureGroupMembersCache(conv.groupId);
     } else {
-        document.getElementById('chat-subtitle').textContent = '';
+        const f = State.friends.find(f => f.id === conv.peerId);
+        document.getElementById('chat-subtitle').textContent = (f && f.signature) ? f.signature : '';
     }
 
     // 加载历史消息
@@ -576,14 +613,32 @@ async function openConversation(conv) {
 // ================================================================
 function renderMessages() {
     const container = document.getElementById('messages-area');
+    if (!State.activeChat) {
+        container.innerHTML = '';
+        container.dataset.renderedKey = '';
+        return;
+    }
+
+    const key = State.activeChat.key;
+    const msgs = State.messages.get(key) || [];
+
+    // 判断是否是同一会话的增量更新
+    const isSameChat = container.dataset.renderedKey === key;
+    if (isSameChat) {
+        // 增量模式：只追加未渲染的新消息，不重建旧行（修复闪烁）
+        appendNewMessages(container, msgs);
+        scrollToBottomSmart(container);
+        return;
+    }
+
+    // 切换会话：全量重建
     container.innerHTML = '';
-    if (!State.activeChat) return;
+    container.dataset.renderedKey = key;
+    container.dataset.lastRenderedIdx = '-1';
 
-    const msgs = State.messages.get(State.activeChat.key) || [];
     let lastDate = null;
-
-    msgs.forEach(msg => {
-        // 时间分隔
+    let lastSender = null;
+    msgs.forEach((msg, idx) => {
         const msgDate = formatDate(msg.sendTime);
         if (msgDate !== lastDate) {
             const sep = document.createElement('div');
@@ -591,13 +646,72 @@ function renderMessages() {
             sep.textContent = msgDate;
             container.appendChild(sep);
             lastDate = msgDate;
+            lastSender = null; // 日期分隔后重置发送者
         }
-
-        container.appendChild(createMessageRow(msg));
+        const row = createMessageRow(msg);
+        // 同一发送者连续消息：收紧间距、隐藏头像
+        if (lastSender === msg.senderId && msg.status !== 'RECALLED') {
+            row.classList.add('same-sender');
+        }
+        lastSender = (msg.status === 'RECALLED') ? null : msg.senderId;
+        container.appendChild(row);
     });
+
+    container.dataset.lastRenderedIdx = String(msgs.length - 1);
 
     // 滚到底部
     container.scrollTop = container.scrollHeight;
+}
+
+// 增量追加：只把 State 里还没渲染的消息 append 进去
+function appendNewMessages(container, msgs) {
+    const lastIdx = parseInt(container.dataset.lastRenderedIdx || '-1', 10);
+    if (msgs.length - 1 <= lastIdx) return; // 没有新消息
+
+    // 找最后一条已渲染消息的日期和发送者，用于判断是否需要分隔/隐藏头像
+    let lastDate = null;
+    let lastSender = null;
+    if (lastIdx >= 0) {
+        lastDate = formatDate(msgs[lastIdx].sendTime);
+        lastSender = msgs[lastIdx].status === 'RECALLED' ? null : msgs[lastIdx].senderId;
+    }
+
+    for (let i = lastIdx + 1; i < msgs.length; i++) {
+        const msg = msgs[i];
+        const msgDate = formatDate(msg.sendTime);
+        if (msgDate !== lastDate) {
+            const sep = document.createElement('div');
+            sep.className = 'time-separator';
+            sep.textContent = msgDate;
+            container.appendChild(sep);
+            lastDate = msgDate;
+            lastSender = null;
+        }
+        const row = createMessageRow(msg);
+        if (lastSender === msg.senderId && msg.status !== 'RECALLED') {
+            row.classList.add('same-sender');
+        }
+        lastSender = msg.status === 'RECALLED' ? null : msg.senderId;
+        container.appendChild(row);
+    }
+    container.dataset.lastRenderedIdx = String(msgs.length - 1);
+}
+
+// 智能滚动：用户在底部附近时自动滚到底；翻历史时打扰最小
+function scrollToBottomSmart(container) {
+    const threshold = 120; // 距离底部 120px 内视为"在底部"
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (distanceFromBottom <= threshold) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+// 强制全量重渲染（用于撤回/删除/已读状态变化等消息内容变更场景）
+// 这类操作低频（用户主动触发），全量重建可接受，不影响连续发消息的流畅度
+function forceRerenderMessages() {
+    const container = document.getElementById('messages-area');
+    container.dataset.renderedKey = '';  // 重置标记，下次 renderMessages 会走全量分支
+    renderMessages();
 }
 
 function createMessageRow(msg) {
@@ -605,6 +719,12 @@ function createMessageRow(msg) {
     row.className = 'msg-row';
     const isMine = msg.senderId === State.me.id;
     if (isMine) row.classList.add('mine');
+    // 群聊且 @ 我：左侧红色竖条
+    const mentions = msg.mentionUserIds || [];
+    const mentionMe = mentions.includes(State.me.id) || mentions.includes(-1);
+    if (msg.type === 'GROUP' && mentionMe && !isMine) {
+        row.classList.add('mentioned');
+    }
     row.dataset.msgId = msg.id;
 
     // 头像
@@ -641,7 +761,7 @@ function createMessageRow(msg) {
         switch (ct) {
             case 'TEXT':
                 bubble.classList.add('text');
-                bubble.textContent = msg.content;
+                bubble.innerHTML = renderTextContent(msg.content);
                 break;
             case 'EMOJI':
                 bubble.classList.add('emoji');
@@ -666,6 +786,33 @@ function createMessageRow(msg) {
                         '<div class="file-size">' + formatFileSize(msg.attachment.size) + '</div>' +
                         '</div>' +
                         '<a class="file-download" href="' + msg.attachment.url + '" target="_blank" download>下载</a>';
+                }
+                break;
+            case 'AUDIO':
+                bubble.classList.add('audio');
+                if (msg.attachment) {
+                    const dur = msg.audioDuration || 0;
+                    // bar 数量：3~20，按时长递增
+                    const barCount = Math.max(3, Math.min(20, Math.ceil(dur)));
+                    let barsHtml = '';
+                    for (let i = 0; i < barCount; i++) {
+                        // 静态波形高度 4~16px（用 sin 模拟随机起伏），未播放时静止显示
+                        const h = 4 + Math.floor(Math.abs(Math.sin(i * 1.3 + dur * 0.7)) * 12);
+                        barsHtml += '<span class="bar" style="height:' + h + 'px;animation-delay:' + (i * 0.08) + 's;"></span>';
+                    }
+                    // 气泡宽度按时长扩展：120 ~ 280px
+                    const minW = 120, maxW = 280;
+                    const w = Math.min(maxW, minW + dur * 6);
+                    bubble.style.minWidth = w + 'px';
+                    bubble.innerHTML =
+                        '<div class="audio-bubble" onclick="event.stopPropagation();">' +
+                            '<div class="audio-play-btn" onclick="toggleAudioPlay(this)">' + AUDIO_PLAY_SVG + '</div>' +
+                            '<div class="audio-info">' +
+                                '<div class="audio-duration">' + formatDuration(dur) + '</div>' +
+                                '<div class="audio-bars">' + barsHtml + '</div>' +
+                            '</div>' +
+                            '<audio src="' + msg.attachment.url + '" preload="metadata" onended="onAudioEnded(this)"></audio>' +
+                        '</div>';
                 }
                 break;
         }
@@ -757,7 +904,21 @@ function positionMsgActions(row) {
 // ================================================================
 // 发送消息
 // ================================================================
-function handleInput() {}
+function handleInput() {
+    const ta = document.getElementById('input-box');
+    if (!ta) return;
+    // 每次输入都从全文重解析 @ 列表（避免区间维护 bug）
+    syncMentionsFromText(ta.value);
+    // 仅群聊响应 @ 浮层
+    if (!State.activeChat || State.activeChat.type !== 'GROUP') {
+        closeMentionPanel();
+        return;
+    }
+    const pos = ta.selectionStart;
+    const before = ta.value.slice(0, pos);
+    const m = before.match(/@([^\s@]*)$/);
+    if (m) openMentionPanel(m[1]); else closeMentionPanel();
+}
 
 function handleInputKeyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -772,6 +933,9 @@ async function handleSend() {
     const content = input.value.trim();
     if (!content) return;
 
+    // 发送前重新解析 mention，保证 userId 与文本一致
+    syncMentionsFromText(content);
+
     const req = {
         type: State.activeChat.type,
         content: content,
@@ -781,10 +945,15 @@ async function handleSend() {
         req.receiverId = State.activeChat.peerId;
     } else {
         req.groupId = State.activeChat.groupId;
+        if (State.currentMentions && State.currentMentions.length > 0) {
+            req.mentionUserIds = [...new Set(State.currentMentions.map(m => m.userId))];
+        }
     }
 
     input.value = '';
     closeEmojiPanel();
+    closeMentionPanel();
+    State.currentMentions = [];
 
     try {
         await apiPost('/api/messages', req);
@@ -792,6 +961,7 @@ async function handleSend() {
     } catch (e) {
         showToast(e.message);
         input.value = content; // 恢复内容
+        syncMentionsFromText(content);
     }
 }
 
@@ -948,6 +1118,7 @@ function updateConnStatus(status, customText) {
 // ================================================================
 function handleMessage(msg) {
     if (!msg) return;
+    const isMineInHandler = msg.senderId === State.me.id;
 
     // 确定会话 key
     let key;
@@ -964,7 +1135,8 @@ function handleMessage(msg) {
     }
     const msgs = State.messages.get(key);
     const existIdx = msgs.findIndex(m => m.id === msg.id);
-    if (existIdx >= 0) {
+    const isUpdate = existIdx >= 0;   // 撤回/已读等是更新已有消息
+    if (isUpdate) {
         msgs[existIdx] = msg; // 更新（撤回场景）
     } else {
         msgs.push(msg);
@@ -972,10 +1144,15 @@ function handleMessage(msg) {
 
     // 更新会话预览
     const conv = State.sessionPreviews.get(key);
+    const mentions = msg.mentionUserIds || [];
+    const msgMentionsMe = msg.type === 'GROUP'
+        && !isMineInHandler
+        && (mentions.includes(State.me.id) || mentions.includes(-1));
     if (conv) {
         conv.lastContent = previewText(msg);
         conv.lastContentType = msg.contentType;
         conv.lastTime = msg.sendTime;
+        if (msgMentionsMe) conv.hasMention = true;
     } else {
         // 新会话
         const newConv = {
@@ -1002,16 +1179,20 @@ function handleMessage(msg) {
 
     // 未读数处理
     const isActiveChat = State.activeChat && State.activeChat.key === key;
-    const isMine = msg.senderId === State.me.id;
+    const isMine = isMineInHandler;
     const isPageVisible = !document.hidden;
     // 当前会话且页面可见：视为已读；否则计为未读
     const effectivelyRead = isActiveChat && isPageVisible;
 
     if (effectivelyRead) {
-        // 当前会话且页面可见：直接渲染 + 标记已读
-        renderMessages();
+        // 当前会话且页面可见：渲染 + 标记已读
+        // 撤回/已读状态变更走强制全量重渲染；新消息走增量（避免闪烁）
+        if (isUpdate) forceRerenderMessages(); else renderMessages();
         if (!isMine && msg.status !== 'RECALLED') {
             markConversationRead(key, msg.id);
+            // 已读时清除 @我 标记
+            const c = State.sessionPreviews.get(key);
+            if (c) c.hasMention = false;
         }
     } else if (!isMine && msg.status !== 'RECALLED') {
         // 非当前会话，或当前会话但页面失焦：增加未读
@@ -1019,11 +1200,11 @@ function handleMessage(msg) {
         State.unreadMap.set(key, current + 1);
         // 当前会话但页面失焦：仍渲染消息（用户回来时直接看到）
         if (isActiveChat) {
-            renderMessages();
+            if (isUpdate) forceRerenderMessages(); else renderMessages();
         }
     } else if (isActiveChat) {
         // 当前会话可见且自己发的：直接渲染
-        renderMessages();
+        if (isUpdate) forceRerenderMessages(); else renderMessages();
     }
 
     renderSidebar();
@@ -1051,6 +1232,7 @@ function previewText(msg) {
         case 'EMOJI': return msg.content;
         case 'IMAGE': return '[图片]';
         case 'FILE': return '[文件] ' + (msg.attachment ? msg.attachment.name : '');
+        case 'AUDIO': return '[语音]';
         default: return msg.content || '';
     }
 }
@@ -1118,6 +1300,22 @@ function handleNotify(notify) {
             break;
         case 'MEMBER_JOINED':
             refreshGroups();
+            break;
+        case 'GROUP_INFO_UPDATED':
+            refreshGroups().then(() => {
+                renderSidebar();
+                // 当前会话为该群时，同步标题与详情面板
+                const payload = notify.payload || {};
+                if (State.activeChat && State.activeChat.groupId === payload.groupId) {
+                    const g = State.groups.find(g => g.id === payload.groupId);
+                    if (g) {
+                        document.getElementById('chat-title').textContent = g.name;
+                        State.activeChat.title = g.name;
+                        State.activeChat.avatar = g.avatar;
+                    }
+                    if (State.detailPanelOpen) renderDetailPanel();
+                }
+            });
             break;
     }
 }
@@ -1396,6 +1594,8 @@ function toggleEmojiPanel() {
     if (panel.classList.contains('show')) {
         closeEmojiPanel();
     } else {
+        closeMoreMenu();
+        closeMentionPanel();
         panel.classList.add('show');
         renderEmojiPanel();
     }
@@ -1403,6 +1603,284 @@ function toggleEmojiPanel() {
 
 function closeEmojiPanel() {
     document.getElementById('emoji-panel').classList.remove('show');
+}
+
+// ================================================================
+// + 号更多菜单
+// ================================================================
+function toggleMoreMenu(e) {
+    if (e) e.stopPropagation();
+    closeEmojiPanel();
+    closeMentionPanel();
+    document.getElementById('more-menu').classList.toggle('show');
+}
+
+function closeMoreMenu() {
+    const el = document.getElementById('more-menu');
+    if (el) el.classList.remove('show');
+}
+
+// ================================================================
+// 语音消息
+// ================================================================
+const MAX_RECORD_SECONDS = 60;
+
+function isRecording() {
+    return State.recording && State.recording.recorder && State.recording.recorder.state === 'recording';
+}
+
+async function toggleRecording() {
+    if (isRecording()) {
+        stopRecordingAndSend();
+        return;
+    }
+    if (!State.activeChat) {
+        showToast('请先选择会话');
+        return;
+    }
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast('语音功能需要在 HTTPS 或 localhost 下访问');
+        return;
+    }
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const options = {};
+        if (typeof MediaRecorder !== 'undefined') {
+            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options.mimeType = 'audio/webm;codecs=opus';
+            else if (MediaRecorder.isTypeSupported('audio/webm')) options.mimeType = 'audio/webm';
+            else if (MediaRecorder.isTypeSupported('audio/mp4')) options.mimeType = 'audio/mp4';
+        }
+        const recorder = options.mimeType ? new MediaRecorder(stream, options) : new MediaRecorder(stream);
+        const chunks = [];
+        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = () => handleRecorderStop(recorder, stream, chunks);
+        recorder.start();
+        State.recording = {
+            recorder, stream, chunks,
+            startTime: Date.now(),
+            duration: 0,
+            timer: setInterval(() => {
+                const sec = Math.floor((Date.now() - State.recording.startTime) / 1000);
+                State.recording.duration = sec;
+                updateRecordingUI(sec);
+                if (sec >= MAX_RECORD_SECONDS) stopRecordingAndSend();
+            }, 200),
+            cancelled: false,
+            mimeType: recorder.mimeType || 'audio/webm'
+        };
+        // 切换 UI
+        closeEmojiPanel(); closeMoreMenu(); closeMentionPanel();
+        document.getElementById('input-toolbar').style.display = 'none';
+        document.getElementById('recording-indicator').style.display = 'flex';
+        document.getElementById('voice-btn').classList.add('recording');
+        updateRecordingUI(0);
+    } catch (e) {
+        showToast('无法访问麦克风：' + (e && e.message ? e.message : '已拒绝'));
+    }
+}
+
+function updateRecordingUI(sec) {
+    const el = document.getElementById('rec-time');
+    if (el) el.textContent = formatDuration(sec);
+}
+
+function handleRecorderStop(recorder, stream, chunks) {
+    if (stream && stream.getTracks) stream.getTracks().forEach(t => t.stop());
+    if (State.recording && State.recording.timer) {
+        clearInterval(State.recording.timer);
+    }
+    const cancelled = State.recording && State.recording.cancelled;
+    const duration = State.recording ? State.recording.duration : 0;
+    const mimeType = State.recording ? State.recording.mimeType : 'audio/webm';
+    // 恢复 UI
+    document.getElementById('input-toolbar').style.display = '';
+    document.getElementById('recording-indicator').style.display = 'none';
+    document.getElementById('voice-btn').classList.remove('recording');
+    State.recording = null;
+    if (cancelled) return;
+    if (!chunks || chunks.length === 0) return;
+    const blob = new Blob(chunks, { type: mimeType });
+    sendAudioMessage(blob, duration, mimeType);
+}
+
+function stopRecordingAndSend() {
+    if (!isRecording()) return;
+    State.recording.recorder.stop();
+}
+
+function cancelRecording() {
+    if (!isRecording()) return;
+    if (State.recording) State.recording.cancelled = true;
+    State.recording.recorder.stop();
+}
+
+async function sendAudioMessage(blob, duration, mimeType) {
+    if (!State.activeChat) return;
+    if (duration < 1) {
+        showToast('录音太短');
+        return;
+    }
+    let ext = 'webm';
+    if (mimeType && mimeType.includes('mp4')) ext = 'm4a';
+    else if (mimeType && mimeType.includes('ogg')) ext = 'ogg';
+    const file = new File([blob], 'voice-' + Date.now() + '.' + ext, { type: blob.type });
+    try {
+        const attachment = await apiUpload('/api/messages/upload', file);
+        const req = {
+            type: State.activeChat.type,
+            content: '',
+            contentType: 'AUDIO',
+            attachmentUrl: attachment.url,
+            attachmentName: file.name,
+            attachmentSize: attachment.size,
+            audioDuration: duration
+        };
+        if (State.activeChat.type === 'PRIVATE') req.receiverId = State.activeChat.peerId;
+        else {
+            req.groupId = State.activeChat.groupId;
+            if (State.currentMentions && State.currentMentions.length > 0) {
+                req.mentionUserIds = [...new Set(State.currentMentions.map(m => m.userId))];
+            }
+        }
+        await apiPost('/api/messages', req);
+    } catch (e) {
+        showToast(e.message || '发送失败');
+    }
+}
+
+function formatDuration(sec) {
+    if (!sec || sec < 0) sec = 0;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m + ':' + (s < 10 ? '0' + s : s);
+}
+
+// 气泡内播放控制
+const AUDIO_PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const AUDIO_PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+
+function toggleAudioPlay(btn) {
+    const audio = btn.parentElement.querySelector('audio');
+    if (!audio) return;
+    if (audio.paused) {
+        // 停止其他正在播放的
+        document.querySelectorAll('.msg-bubble.audio audio').forEach(a => {
+            if (a !== audio) { a.pause(); a.currentTime = 0; }
+        });
+        document.querySelectorAll('.audio-play-btn.playing').forEach(b => {
+            b.classList.remove('playing');
+            b.innerHTML = AUDIO_PLAY_SVG;
+        });
+        audio.play().catch(() => {});
+        btn.classList.add('playing');
+        btn.innerHTML = AUDIO_PAUSE_SVG;
+    } else {
+        audio.pause();
+        btn.classList.remove('playing');
+        btn.innerHTML = AUDIO_PLAY_SVG;
+    }
+}
+
+function onAudioEnded(audio) {
+    const btn = audio.parentElement.querySelector('.audio-play-btn');
+    if (btn) {
+        btn.classList.remove('playing');
+        btn.innerHTML = AUDIO_PLAY_SVG;
+    }
+    audio.currentTime = 0;
+}
+
+// ================================================================
+// 群聊 @ 浮层
+// ================================================================
+async function ensureGroupMembersCache(groupId) {
+    if (State.groupMembersCache[groupId]) return State.groupMembersCache[groupId];
+    try {
+        const members = await apiGet('/api/groups/' + groupId + '/members');
+        State.groupMembersCache[groupId] = members;
+        return members;
+    } catch {
+        State.groupMembersCache[groupId] = [];
+        return [];
+    }
+}
+
+function openMentionPanel(keyword) {
+    const panel = document.getElementById('mention-panel');
+    const list = document.getElementById('mention-list');
+    if (!panel || !list) return;
+    if (!State.activeChat || State.activeChat.type !== 'GROUP') return;
+    const members = State.groupMembersCache[State.activeChat.groupId] || [];
+    const kw = (keyword || '').toLowerCase();
+    // 第一项永远是"所有人"
+    const candidates = [
+        { id: -1, nickname: '所有人', username: '', avatar: null, isAll: true },
+        ...members
+    ].filter(m => {
+        if (!kw) return true;
+        return (m.nickname && m.nickname.toLowerCase().includes(kw))
+            || (m.username && m.username.toLowerCase().includes(kw));
+    });
+
+    if (candidates.length === 0) { closeMentionPanel(); return; }
+
+    list.innerHTML = '';
+    candidates.forEach((m, idx) => {
+        const item = document.createElement('div');
+        item.className = 'mention-item' + (idx === 0 ? ' active' : '');
+        const avatar = m.avatar
+            ? '<img src="' + m.avatar + '">'
+            : '<div class="avatar-circle" style="width:28px;height:28px;border-radius:50%;background:#07c160;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;">'
+                + escapeHtml((m.nickname || m.username || '?').charAt(0).toUpperCase()) + '</div>';
+        item.innerHTML = avatar + '<span class="mention-name">' + escapeHtml(m.nickname || m.username || '所有人') + '</span>';
+        item.onclick = () => pickMention(m);
+        list.appendChild(item);
+    });
+    panel.classList.add('show');
+}
+
+function closeMentionPanel() {
+    const panel = document.getElementById('mention-panel');
+    if (panel) panel.classList.remove('show');
+}
+
+function pickMention(user) {
+    const ta = document.getElementById('input-box');
+    const pos = ta.selectionStart;
+    const before = ta.value.slice(0, pos);
+    const after = ta.value.slice(pos);
+    const atIdx = before.lastIndexOf('@');
+    if (atIdx < 0) { closeMentionPanel(); return; }
+    const nickname = user.isAll ? '所有人' : (user.nickname || user.username);
+    const insertText = '@' + nickname + ' ';
+    ta.value = before.slice(0, atIdx) + insertText + after;
+    const newPos = atIdx + insertText.length;
+    ta.focus();
+    ta.setSelectionRange(newPos, newPos);
+    closeMentionPanel();
+    syncMentionsFromText(ta.value);
+}
+
+// 每次输入/发送前从全文重解析 @ 列表（不维护区间，避免 backspace 同步 bug）
+function syncMentionsFromText(text) {
+    State.currentMentions = [];
+    if (!State.activeChat || State.activeChat.type !== 'GROUP') return;
+    const members = State.groupMembersCache[State.activeChat.groupId] || [];
+    const nameMap = new Map();
+    members.forEach(m => {
+        const name = m.nickname || m.username;
+        if (name) nameMap.set(name, m.id);
+    });
+    const regex = /@([^\s@]+)/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        const name = match[1];
+        if (name === '所有人' || name === 'all') {
+            State.currentMentions.push({ userId: -1, nickname: 'all' });
+        } else if (nameMap.has(name)) {
+            State.currentMentions.push({ userId: nameMap.get(name), nickname: name });
+        }
+    }
 }
 
 function switchEmojiTab(tab, el) {
@@ -1671,10 +2149,46 @@ async function renderDetailPanel() {
         let members = [];
         try {
             members = await apiGet('/api/groups/' + State.activeChat.groupId + '/members');
+            // 缓存成员供 @ 浮层使用
+            State.groupMembersCache[State.activeChat.groupId] = members;
         } catch {}
-        body.innerHTML = '<div class="detail-section-title">群名</div>' +
-                        '<div style="font-size:14px;margin-bottom:12px;">' + escapeHtml(group ? group.name : '') + '</div>' +
-                        '<div class="detail-section-title">群成员 (' + members.length + ')</div>';
+        const isOwner = group && State.me && group.ownerId === State.me.id;
+        const groupAvatarInner = group && group.avatar
+            ? '<img src="' + group.avatar + '" style="width:100%;height:100%;object-fit:cover;">'
+            : escapeHtml((group ? group.name : '#').charAt(0).toUpperCase());
+        const avatarHtml = isOwner
+            ? '<div id="group-avatar-display" style="position:relative;cursor:pointer;">' +
+                '<div style="width:64px;height:64px;border-radius:8px;margin:0 auto 12px;background:#07c160;color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;overflow:hidden;">' + groupAvatarInner + '</div>' +
+                '<div style="font-size:11px;color:var(--text-secondary);text-align:center;margin-top:-8px;margin-bottom:8px;">点击更换</div>' +
+              '</div>' +
+              '<input type="file" id="group-avatar-input" accept="image/*" style="display:none;" onchange="uploadGroupAvatar(this, ' + State.activeChat.groupId + ')">'
+            : '<div style="width:64px;height:64px;border-radius:8px;margin:0 auto 12px;background:#07c160;color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;overflow:hidden;">' + groupAvatarInner + '</div>';
+
+        body.innerHTML = '<div style="text-align:center;padding:8px 0 12px;">' + avatarHtml + '</div>';
+
+        // 群名（群主可编辑）
+        const nameSection = document.createElement('div');
+        nameSection.innerHTML = '<div class="detail-section-title">群名</div>';
+        const nameRow = document.createElement('div');
+        nameRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:14px;';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.id = 'group-name-input';
+        nameInput.value = group ? group.name : '';
+        nameInput.maxLength = 100;
+        nameInput.style.cssText = 'flex:1;padding:6px 8px;border:0.5px solid var(--border-light);border-radius:6px;background:var(--bg-input-box);color:var(--text-primary);font-size:14px;font-family:inherit;';
+        nameInput.disabled = !isOwner;
+        nameInput.dataset.original = group ? group.name : '';
+        nameInput.onblur = () => updateGroupName(State.activeChat.groupId, nameInput);
+        if (!isOwner) nameInput.style.opacity = '0.85';
+        nameRow.appendChild(nameInput);
+        nameSection.appendChild(nameRow);
+        body.appendChild(nameSection);
+
+        const memberTitle = document.createElement('div');
+        memberTitle.className = 'detail-section-title';
+        memberTitle.textContent = '群成员 (' + members.length + ')';
+        body.appendChild(memberTitle);
         members.forEach(m => {
             const div = document.createElement('div');
             div.className = 'member-item';
@@ -1685,11 +2199,23 @@ async function renderDetailPanel() {
             } else {
                 avatar.textContent = (m.nickname || m.username || '?').charAt(0).toUpperCase();
             }
-            const name = document.createElement('div');
-            name.className = 'member-name';
-            name.textContent = m.nickname || m.username;
+            const info = document.createElement('div');
+            info.className = 'member-name';
+            info.textContent = m.nickname || m.username;
+            if (group && m.id === group.ownerId) {
+                const tag = document.createElement('span');
+                tag.style.cssText = 'margin-left:6px;font-size:11px;color:#fa9d3b;';
+                tag.textContent = '群主';
+                info.appendChild(tag);
+            }
+            if (m.signature) {
+                const sig = document.createElement('div');
+                sig.className = 'member-signature';
+                sig.textContent = m.signature;
+                info.appendChild(sig);
+            }
             div.appendChild(avatar);
-            div.appendChild(name);
+            div.appendChild(info);
             body.appendChild(div);
         });
 
@@ -1700,6 +2226,12 @@ async function renderDetailPanel() {
         inviteBtn.textContent = '邀请好友入群';
         inviteBtn.onclick = () => openInviteModal(State.activeChat.groupId);
         body.appendChild(inviteBtn);
+
+        // 群主点击头像触发上传
+        if (isOwner) {
+            const display = document.getElementById('group-avatar-display');
+            if (display) display.onclick = () => document.getElementById('group-avatar-input').click();
+        }
     } else {
         title.textContent = '好友信息';
         const friend = State.friends.find(f => f.id === State.activeChat.peerId);
@@ -1710,6 +2242,7 @@ async function renderDetailPanel() {
                 '</div>' +
                 '<div style="font-size:16px;font-weight:600;">' + escapeHtml(friend.nickname || friend.username) + '</div>' +
                 '<div style="font-size:13px;color:#9a9a9a;margin-top:4px;">@' + escapeHtml(friend.username) + '</div>' +
+                (friend.signature ? '<div style="font-size:13px;color:#9a9a9a;margin-top:6px;">签名：' + escapeHtml(friend.signature) + '</div>' : '') +
                 '</div>';
         }
     }
@@ -1934,6 +2467,9 @@ async function showMyInfo() {
             '</div>' +
             '<input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="uploadAvatar(this)">' +
         '</div>' +
+        '<div class="setting-section-title">个性签名</div>' +
+        '<div id="my-signature" class="signature-box" contenteditable="true" style="outline:none;" onblur="saveMySignature()" data-original="' + escapeHtml(me.signature || '') + '">' + escapeHtml(me.signature || '') + '</div>' +
+        '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">失焦自动保存</div>' +
         '<div class="setting-section-title">主题模式</div>' +
         '<div class="theme-switch-row">' +
             '<div id="theme-btn-light" class="theme-switch-btn' + ((localStorage.getItem('theme') || 'light') === 'light' ? ' active' : '') + '" onclick="applyTheme(\'light\')">☀️ 白天</div>' +
@@ -1964,6 +2500,30 @@ function buildBubbleColorDot(key, label) {
 function confirmLogout() {
     if (confirm('确定要退出当前账号吗？')) {
         logout();
+    }
+}
+
+async function saveMySignature() {
+    const el = document.getElementById('my-signature');
+    if (!el) return;
+    const signature = el.innerText.trim();
+    // 与原值相同则不请求，避免初次渲染或未改动触发
+    const original = el.dataset.original || '';
+    if (signature === original) return;
+    if (signature.length > 200) {
+        showToast('签名最长 200 字');
+        return;
+    }
+    try {
+        await apiPut('/api/users/me/profile', { signature });
+        if (State.me) {
+            State.me.signature = signature;
+            localStorage.setItem('me', JSON.stringify(State.me));
+        }
+        el.dataset.original = signature;
+        showToast('签名已保存');
+    } catch (e) {
+        showToast(e.message);
     }
 }
 
@@ -2032,6 +2592,8 @@ function favoriteMsgPreview(fav) {
                 : '[图片]';
         case 'FILE':
             return '<span style="color:#07c160;">[文件]</span> ' + escapeHtml((fav.attachment && fav.attachment.name) || '');
+        case 'AUDIO':
+            return '<span style="color:#fa9d3b;">[语音]</span> ' + formatDuration(fav.audioDuration || 0);
         default:
             return escapeHtml(fav.content || '');
     }
@@ -2092,6 +2654,57 @@ async function uploadAvatar(input) {
     }
 }
 
+async function uploadGroupAvatar(input, groupId) {
+    const file = input.files[0];
+    if (!file) return;
+    try {
+        const resp = await apiUpload('/api/groups/' + groupId + '/avatar', file);
+        // 更新本地缓存
+        const g = State.groups.find(g => g.id === groupId);
+        if (g) g.avatar = resp.url;
+        // 更新详情面板内头像显示
+        const display = document.getElementById('group-avatar-display');
+        if (display) {
+            const inner = display.querySelector('div');
+            if (inner) inner.innerHTML = '<img src="' + resp.url + '" style="width:100%;height:100%;object-fit:cover;">';
+        }
+        renderSidebar();
+        showToast('群头像已更新');
+    } catch (e) {
+        showToast(e.message);
+    }
+}
+
+async function updateGroupName(groupId, input) {
+    const name = input.value.trim();
+    const original = input.dataset.original || '';
+    if (name === original) return;
+    if (!name) {
+        showToast('群名不能为空');
+        input.value = original;
+        return;
+    }
+    if (name.length > 100) {
+        showToast('群名最长 100 字');
+        return;
+    }
+    try {
+        await apiPut('/api/groups/' + groupId, { name });
+        const g = State.groups.find(g => g.id === groupId);
+        if (g) g.name = name;
+        input.dataset.original = name;
+        // 更新聊天区标题
+        if (State.activeChat && State.activeChat.groupId === groupId) {
+            document.getElementById('chat-title').textContent = name;
+            State.activeChat.title = name;
+        }
+        renderSidebar();
+        showToast('群名已更新');
+    } catch (e) {
+        showToast(e.message);
+    }
+}
+
 // ================================================================
 // 工具函数
 // ================================================================
@@ -2099,6 +2712,27 @@ function escapeHtml(str) {
     if (str == null) return '';
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// 文本消息渲染：先 escapeHtml 防 XSS，再高亮 @昵称
+function renderTextContent(rawText) {
+    let safe = escapeHtml(rawText);
+    const mentionClass = (name) => {
+        // 判断是否 @ 我
+        if (!State.me) return 'mention-tag';
+        const myNickname = State.me.nickname;
+        const myUsername = State.me.username;
+        if (name === '所有人' || name === 'all') return 'mention-tag';
+        if ((myNickname && name === myNickname) || (myUsername && name === myUsername)) {
+            return 'mention-tag me';
+        }
+        // 还需匹配群成员中是否是自己
+        return 'mention-tag';
+    };
+    safe = safe.replace(/@([^\s@<&]+)/g, (m, name) => {
+        return '<span class="' + mentionClass(name) + '">@' + name + '</span>';
+    });
+    return safe;
 }
 
 function formatTime(time) {
@@ -2163,6 +2797,18 @@ document.addEventListener('click', (e) => {
         !emojiPanel.contains(e.target) && !emojiBtn.contains(e.target)) {
         closeEmojiPanel();
     }
+    // 关闭 + 号更多菜单
+    const moreMenu = document.getElementById('more-menu');
+    if (moreMenu && moreMenu.classList.contains('show') &&
+        !moreMenu.contains(e.target) && !e.target.closest('.more-trigger')) {
+        closeMoreMenu();
+    }
+    // 关闭 @ 浮层（点击 textarea 内不算）
+    const mentionPanel = document.getElementById('mention-panel');
+    if (mentionPanel && mentionPanel.classList.contains('show') &&
+        !mentionPanel.contains(e.target) && e.target.id !== 'input-box') {
+        closeMentionPanel();
+    }
     // 关闭模态
     if (e.target.id === 'modal-overlay') {
         closeModal();
@@ -2181,6 +2827,7 @@ document.getElementById('nav-contacts').addEventListener('click', () => {
 
 // 暴露给全局
 window.handleAuth = handleAuth;
+window.validateAuthInput = validateAuthInput;
 window.switchAuthMode = switchAuthMode;
 window.switchTab = switchTab;
 window.handleSearchInput = handleSearchInput;
@@ -2238,10 +2885,10 @@ document.getElementById('badge-requests').parentElement.addEventListener('click'
 // ================================================================
 // 主题 & 气泡颜色（提前执行，避免页面闪烁）
 const BUBBLE_COLORS = {
-    white:  { value: '#ffffff', text: '#1f2329' },
-    gray:   { value: '#dcdcdc', text: '#1f2329' },
-    blue:   { value: '#4a90e2', text: '#ffffff' },
-    green:  { value: '#95EC69', text: '#1f2329' }
+    white:  { value: '#ffffff', text: '#1f2329', rgb: '255, 255, 255' },
+    gray:   { value: '#dcdcdc', text: '#1f2329', rgb: '220, 220, 220' },
+    blue:   { value: '#4a90e2', text: '#ffffff', rgb: '74, 144, 226' },
+    green:  { value: '#95EC69', text: '#1f2329', rgb: '149, 236, 105' }
 };
 
 (function loadSavedTheme() {
@@ -2251,6 +2898,7 @@ const BUBBLE_COLORS = {
         const bubble = localStorage.getItem('bubbleColor') || 'green';
         const cfg = BUBBLE_COLORS[bubble] || BUBBLE_COLORS.green;
         document.documentElement.style.setProperty('--bubble-mine', cfg.value);
+        document.documentElement.style.setProperty('--bubble-mine-rgb', cfg.rgb);
         document.documentElement.style.setProperty('--text-bubble-mine', cfg.text);
     } catch {}
 })();
@@ -2270,6 +2918,7 @@ function applyBubbleColor(colorKey) {
     const cfg = BUBBLE_COLORS[colorKey] || BUBBLE_COLORS.green;
     localStorage.setItem('bubbleColor', colorKey);
     document.documentElement.style.setProperty('--bubble-mine', cfg.value);
+    document.documentElement.style.setProperty('--bubble-mine-rgb', cfg.rgb);
     document.documentElement.style.setProperty('--text-bubble-mine', cfg.text);
     // 刷新选中态
     document.querySelectorAll('.bubble-color-dot').forEach(el => {

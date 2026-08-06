@@ -26,5 +26,7 @@ public interface UserService {
 
     void updateAvatar(Long userId, String avatarUrl);
 
+    void updateProfile(Long userId, String signature);
+
     UserVO getCurrentUserInfo(Long userId);
 }

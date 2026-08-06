@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -28,4 +29,6 @@ public class MessageVO {
     private LocalDateTime recalledAt;
     private LocalDateTime sendTime;
     private Boolean read;
+    private List<Long> mentionUserIds;
+    private Integer audioDuration;
 }

@@ -24,6 +24,9 @@ public class ChatGroup {
     @Column(nullable = false, length = 100)
     private String name;
 
+    @Column(length = 512)
+    private String avatar;
+
     @Column(name = "owner_id", nullable = false)
     private Long ownerId;
 

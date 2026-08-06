@@ -85,6 +85,34 @@ public class GroupServiceImpl implements GroupService {
         joinGroup(groupId, targetUserId);
     }
 
+    @Override
+    @Transactional
+    public void updateGroupInfo(Long groupId, Long operatorId, String name, String avatar) {
+        ChatGroup group = groupRepository.findById(groupId)
+                .orElseThrow(() -> BusinessException.notFound("群组不存在"));
+        if (!group.getOwnerId().equals(operatorId)) {
+            throw BusinessException.badRequest("仅群主可修改群信息");
+        }
+        if (name != null && !name.isBlank()) {
+            if (name.length() > 100) {
+                throw BusinessException.badRequest("群名最长 100 字");
+            }
+            group.setName(name.trim());
+        }
+        if (avatar != null) {
+            group.setAvatar(avatar);
+        }
+        groupRepository.save(group);
+
+        // 通知群内成员群信息更新
+        for (Long memberId : groupMemberRepository.findUserIdsByGroupId(groupId)) {
+            if (!memberId.equals(operatorId)) {
+                notifyService.notifyUser(memberId, "GROUP_INFO_UPDATED",
+                        Map.of("groupId", groupId));
+            }
+        }
+    }
+
     // ==================== 群邀请审批 ====================
 
     @Override
@@ -219,6 +247,7 @@ public class GroupServiceImpl implements GroupService {
         return GroupVO.builder()
                 .id(g.getId())
                 .name(g.getName())
+                .avatar(g.getAvatar())
                 .ownerId(g.getOwnerId())
                 .memberCount(memberCount)
                 .createTime(g.getCreateTime())
@@ -231,6 +260,7 @@ public class GroupServiceImpl implements GroupService {
                 .username(u.getUsername())
                 .nickname(u.getNickname())
                 .avatar(u.getAvatar())
+                .signature(u.getSignature())
                 .build();
     }
 

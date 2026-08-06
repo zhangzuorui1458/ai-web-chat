@@ -33,6 +33,9 @@ public class User {
     @Column(length = 512)
     private String avatar;
 
+    @Column(length = 200)
+    private String signature;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createTime;
 
