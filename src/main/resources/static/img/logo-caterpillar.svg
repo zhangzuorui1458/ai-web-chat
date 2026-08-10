@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+  <defs>
+    <!-- 毛毛虫头渐变（嫩绿） -->
+    <linearGradient id="headGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#B8E986"/>
+      <stop offset="55%" stop-color="#7ED957"/>
+      <stop offset="100%" stop-color="#4FA82E"/>
+    </linearGradient>
+    <!-- 脸颊浅色 -->
+    <radialGradient id="faceGrad" cx="0.5" cy="0.55" r="0.5">
+      <stop offset="0%" stop-color="#F5FFE8"/>
+      <stop offset="80%" stop-color="#E5FBC9"/>
+      <stop offset="100%" stop-color="#D4F0A8"/>
+    </radialGradient>
+    <!-- 触角末端球（亮黄） -->
+    <radialGradient id="antTip" cx="0.35" cy="0.3" r="0.7">
+      <stop offset="0%" stop-color="#FFF7B8"/>
+      <stop offset="60%" stop-color="#FFE066"/>
+      <stop offset="100%" stop-color="#E8A317"/>
+    </radialGradient>
+    <radialGradient id="topGloss" cx="0.4" cy="0.2" r="0.55">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#FFFFFF" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.4"/>
+      <feOffset dx="0" dy="3"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.3"/></feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <style>
+      /* 头部呼吸 */
+      .head-group {
+        transform-origin: 50% 55%;
+        animation: cat-breathe 3.4s ease-in-out infinite;
+      }
+      @keyframes cat-breathe {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.04); }
+      }
+      /* 触角晃动 */
+      .antenna-l {
+        transform-origin: 40px 26px;
+        animation: ant-sway-l 3s ease-in-out infinite;
+      }
+      .antenna-r {
+        transform-origin: 56px 26px;
+        animation: ant-sway-r 3s ease-in-out infinite;
+      }
+      @keyframes ant-sway-l {
+        0%, 100% { transform: rotate(-3deg); }
+        50%      { transform: rotate(3deg); }
+      }
+      @keyframes ant-sway-r {
+        0%, 100% { transform: rotate(3deg); }
+        50%      { transform: rotate(-3deg); }
+      }
+      /* 触角顶端灯泡闪烁 */
+      .ant-tip-l, .ant-tip-r {
+        transform-origin: center;
+        animation: tip-glow 1.8s ease-in-out infinite;
+      }
+      .ant-tip-r { animation-delay: -0.9s; }
+      @keyframes tip-glow {
+        0%, 100% { opacity: 0.7; transform: scale(0.95); }
+        50%      { opacity: 1; transform: scale(1.15); }
+      }
+      /* 眨眼 */
+      .eyes {
+        transform-origin: 50% 48%;
+        animation: blink 5s ease-in-out infinite;
+      }
+      @keyframes blink {
+        0%, 92%, 100% { transform: scaleY(1); }
+        95%, 97%      { transform: scaleY(0.1); }
+      }
+      /* 嘴部呼吸 */
+      .mouth {
+        transform-origin: 48px 60px;
+        animation: mouth-smile 3.4s ease-in-out infinite;
+      }
+      @keyframes mouth-smile {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.06) translateY(0.5px); }
+      }
+      /* 腮红呼吸 */
+      .blush { animation: blush-fade 3.4s ease-in-out infinite; }
+      @keyframes blush-fade {
+        0%, 100% { opacity: 0.5; }
+        50%      { opacity: 0.8; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .head-group, .antenna-l, .antenna-r, .ant-tip-l, .ant-tip-r,
+        .eyes, .mouth, .blush { animation: none !important; }
+      }
+    </style>
+  </defs>
+
+  <g class="head-group">
+
+    <!-- ============ 两根触角（带顶端发光球） ============ -->
+    <g class="antenna-l">
+      <path d="M 40 26 Q 32 12 28 10" stroke="#4FA82E" stroke-width="2.5"
+            stroke-linecap="round" fill="none"/>
+      <circle class="ant-tip-l" cx="28" cy="10" r="4" fill="url(#antTip)" filter="url(#softShadow)"/>
+      <!-- 灯泡光晕 -->
+      <circle class="ant-tip-l" cx="28" cy="10" r="7" fill="#FFE066" opacity="0.3"/>
+    </g>
+    <g class="antenna-r">
+      <path d="M 56 26 Q 64 12 68 10" stroke="#4FA82E" stroke-width="2.5"
+            stroke-linecap="round" fill="none"/>
+      <circle class="ant-tip-r" cx="68" cy="10" r="4" fill="url(#antTip)" filter="url(#softShadow)"/>
+      <circle class="ant-tip-r" cx="68" cy="10" r="7" fill="#FFE066" opacity="0.3"/>
+    </g>
+
+    <!-- ============ 毛毛虫圆头 ============ -->
+    <circle cx="48" cy="50" r="32" fill="url(#headGrad)" filter="url(#softShadow)"/>
+    <!-- 脸部浅色区 -->
+    <ellipse cx="48" cy="56" rx="22" ry="20" fill="url(#faceGrad)"/>
+    <!-- 顶部高光 -->
+    <circle cx="48" cy="50" r="32" fill="url(#topGloss)"/>
+
+    <!-- 腮红 -->
+    <circle class="blush" cx="28" cy="56" r="5" fill="#FF6B9D" opacity="0.5"/>
+    <circle class="blush" cx="68" cy="56" r="5" fill="#FF6B9D" opacity="0.5"/>
+
+    <!-- 眼睛（大眼睛 + 高光，整体眨眼） -->
+    <g class="eyes">
+      <ellipse cx="38" cy="48" rx="5" ry="6" fill="#2A3A1A"/>
+      <ellipse cx="58" cy="48" rx="5" ry="6" fill="#2A3A1A"/>
+      <circle cx="40" cy="46" r="1.8" fill="#FFFFFF"/>
+      <circle cx="60" cy="46" r="1.8" fill="#FFFFFF"/>
+      <circle cx="37" cy="50" r="0.8" fill="#FFFFFF" opacity="0.7"/>
+      <circle cx="57" cy="50" r="0.8" fill="#FFFFFF" opacity="0.7"/>
+    </g>
+
+    <!-- 嘴巴（Q 版小笑嘴） -->
+    <g class="mouth">
+      <path d="M 40 60 Q 48 67 56 60"
+            stroke="#3A5A1A" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+      <!-- 小舌头 -->
+      <path d="M 46 63 Q 48 66 50 63" fill="#FF6B9D" opacity="0.8"/>
+    </g>
+
+  </g>
+</svg>

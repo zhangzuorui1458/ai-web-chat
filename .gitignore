@@ -37,3 +37,8 @@ build/
 /logs/
 /uploads/
 app.pid
+
+### Local AI tool dirs (do not commit) ###
+.claude/
+.workbuddy/
+nul
