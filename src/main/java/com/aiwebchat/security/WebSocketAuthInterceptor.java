@@ -3,7 +3,6 @@ package com.aiwebchat.security;
 import com.aiwebchat.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
@@ -30,6 +29,10 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
     @Override
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                    WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
+        // 兼容两种认证方式：
+        // 1. URL ?token=xxx（旧客户端 / Android WebView）
+        // 2. STOMP CONNECT header（新客户端，更安全）
+        // 握手阶段优先检查 URL token；如果不带 URL token 也允许通过（认证推迟到 STOMP CONNECT）
         if (request instanceof ServletServerHttpRequest servletRequest) {
             HttpServletRequest httpServletRequest = servletRequest.getServletRequest();
             String token = httpServletRequest.getParameter("token");
@@ -37,14 +40,14 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
                 User user = onlineUserManager.getUser(token).orElse(null);
                 if (user != null) {
                     attributes.put(ATTR_USER_ID, user.getId());
-                    log.debug("WS handshake accepted for userId={}", user.getId());
+                    log.debug("WS handshake accepted (URL token) for userId={}", user.getId());
                     return true;
                 }
             }
         }
-        log.warn("WS handshake rejected: invalid or missing token");
-        response.setStatusCode(HttpStatus.UNAUTHORIZED);
-        return false;
+        // 不带 URL token 的握手也允许通过 — 认证由 StompAuthInterceptor 在 STOMP CONNECT 帧完成
+        log.debug("WS handshake allowed; auth deferred to STOMP CONNECT");
+        return true;
     }
 
     @Override

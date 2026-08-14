@@ -15,6 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -47,8 +50,21 @@ public class FavoriteServiceImpl implements FavoriteService {
 
     @Override
     public List<FavoriteVO> listMyFavorites(Long userId) {
-        return favoriteRepository.findByUserIdOrderByCreateTimeDesc(userId).stream()
-                .map(this::toVO)
+        List<Favorite> favorites = favoriteRepository.findByUserIdOrderByCreateTimeDesc(userId);
+        if (favorites.isEmpty()) return List.of();
+
+        // 批量查询所有关联的消息（N+1 → 1次查询）
+        List<Long> messageIds = favorites.stream().map(Favorite::getMessageId).distinct().toList();
+        Map<Long, Message> msgMap = messageRepository.findAllById(messageIds).stream()
+                .collect(Collectors.toMap(Message::getId, m -> m));
+
+        // 批量查询所有 sender（N+1 → 1次查询）
+        Set<Long> senderIds = msgMap.values().stream().map(Message::getSenderId).collect(Collectors.toSet());
+        Map<Long, User> senderMap = userRepository.findAllById(senderIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        return favorites.stream()
+                .map(fav -> toVO(fav, msgMap, senderMap))
                 .toList();
     }
 
@@ -77,6 +93,17 @@ public class FavoriteServiceImpl implements FavoriteService {
     }
 
     private FavoriteVO toVO(Favorite fav) {
+        // 单条调用的旧路径（addFavorite / updateNote），保持简单
+        Map<Long, Message> msgMap = messageRepository.findById(fav.getMessageId())
+                .map(m -> Map.of(m.getId(), m))
+                .orElse(Map.of());
+        Set<Long> senderIds = msgMap.values().stream().map(Message::getSenderId).collect(java.util.stream.Collectors.toSet());
+        Map<Long, User> senderMap = userRepository.findAllById(senderIds).stream()
+                .collect(java.util.stream.Collectors.toMap(User::getId, u -> u));
+        return toVO(fav, msgMap, senderMap);
+    }
+
+    private FavoriteVO toVO(Favorite fav, Map<Long, Message> msgMap, Map<Long, User> senderMap) {
         FavoriteVO.FavoriteVOBuilder builder = FavoriteVO.builder()
                 .id(fav.getId())
                 .messageId(fav.getMessageId())
@@ -84,7 +111,7 @@ public class FavoriteServiceImpl implements FavoriteService {
                 .createTime(fav.getCreateTime());
 
         // 关联消息快照（消息可能已被删除）
-        Message msg = messageRepository.findById(fav.getMessageId()).orElse(null);
+        Message msg = msgMap.get(fav.getMessageId());
         if (msg == null) {
             builder.messageDeleted(true);
         } else {
@@ -95,7 +122,7 @@ public class FavoriteServiceImpl implements FavoriteService {
                     .contentType(msg.getContentType())
                     .sendTime(msg.getSendTime());
 
-            User sender = userRepository.findById(msg.getSenderId()).orElse(null);
+            User sender = senderMap.get(msg.getSenderId());
             String displayName = sender == null ? "未知用户"
                     : (sender.getNickname() == null || sender.getNickname().isBlank()
                             ? sender.getUsername() : sender.getNickname());

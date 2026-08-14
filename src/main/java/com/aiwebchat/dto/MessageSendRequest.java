@@ -2,6 +2,7 @@ package com.aiwebchat.dto;
 
 import com.aiwebchat.entity.Message;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,6 +23,7 @@ public class MessageSendRequest {
 
     private Long groupId;
 
+    @Size(max = 10000, message = "消息内容最长 10000 个字符")
     private String content;
 
     private Message.ContentType contentType;
