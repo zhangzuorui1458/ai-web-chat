@@ -37,10 +37,8 @@ public class GroupController {
     }
 
     @GetMapping("/{groupId}/members")
-    public ResponseEntity<List<UserVO>> members(@PathVariable("groupId") Long groupId,
-                                                  HttpServletRequest httpRequest) {
-        User current = CurrentUser.get(httpRequest);
-        return ResponseEntity.ok(groupService.listMembers(groupId, current.getId()));
+    public ResponseEntity<List<UserVO>> members(@PathVariable("groupId") Long groupId) {
+        return ResponseEntity.ok(groupService.listMembers(groupId));
     }
 
     @PutMapping("/{groupId}")

@@ -8,9 +8,6 @@ import com.aiwebchat.service.MessageService;
 import com.aiwebchat.service.NotifyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -142,64 +139,16 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public List<MessageVO> listPrivateHistory(Long meId, Long peerId) {
-        List<Message> messages = messageRepository.findPrivateHistoryAll(meId, peerId);
-        return convertMessagesToVOs(messages, meId);
+        return messageRepository.findPrivateHistory(meId, peerId).stream()
+                .map(m -> toVO(m, userRepository.findById(m.getSenderId()).orElse(null), meId))
+                .toList();
     }
 
     @Override
-    public List<MessageVO> listGroupHistory(Long groupId, Long currentUserId) {
-        // 权限校验：只有群成员才能查看群消息
-        if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, currentUserId)) {
-            throw BusinessException.badRequest("你不在该群中，无权查看消息");
-        }
-        List<Message> messages = messageRepository.findGroupHistoryAll(groupId);
-        return convertMessagesToVOs(messages, currentUserId);
-    }
-
-    // ==================== 分页历史消息 ====================
-
-    @Override
-    public PagedResult<MessageVO> listPrivateHistoryPaged(Long meId, Long peerId, int page, int size) {
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("sendTime").descending());
-        Page<Message> msgPage = messageRepository.findPrivateHistory(meId, peerId, pageable);
-        List<MessageVO> vos = new ArrayList<>(convertMessagesToVOs(msgPage.getContent(), meId));
-        // 按时间正序返回（前端渲染需要从旧到新）
-        Collections.reverse(vos);
-        return PagedResult.of(vos, msgPage.getTotalElements(), msgPage.getTotalPages(), page, size);
-    }
-
-    @Override
-    public PagedResult<MessageVO> listGroupHistoryPaged(Long groupId, Long currentUserId, int page, int size) {
-        if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, currentUserId)) {
-            throw BusinessException.badRequest("你不在该群中，无权查看消息");
-        }
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("sendTime").descending());
-        Page<Message> msgPage = messageRepository.findGroupHistory(groupId, pageable);
-        List<MessageVO> vos = new ArrayList<>(convertMessagesToVOs(msgPage.getContent(), currentUserId));
-        Collections.reverse(vos);
-        return PagedResult.of(vos, msgPage.getTotalElements(), msgPage.getTotalPages(), page, size);
-    }
-
-    /**
-     * 批量将 Message 列表转为 VO 列表（消除 N+1 查询）。
-     * 一次性批量获取所有 sender 的 User 信息。
-     */
-    private List<MessageVO> convertMessagesToVOs(List<Message> messages, Long currentUserId) {
-        if (messages.isEmpty()) return List.of();
-
-        // 批量查询所有 sender
-        Set<Long> senderIds = messages.stream().map(Message::getSenderId).collect(Collectors.toSet());
-        Map<Long, User> senderMap = userRepository.findAllById(senderIds).stream()
-                .collect(Collectors.toMap(User::getId, u -> u));
-
-        // 批量查询私聊已读游标（消除 toVO 中的逐条查询）
-        Set<Long> privateReceiverIds = messages.stream()
-                .filter(m -> m.getType() == Message.MessageType.PRIVATE && m.getReceiverId() != null)
-                .map(Message::getReceiverId)
-                .collect(Collectors.toSet());
-
-        return messages.stream()
-                .map(m -> toVO(m, senderMap.get(m.getSenderId()), currentUserId))
+    public List<MessageVO> listGroupHistory(Long groupId) {
+        // 无法在此处得知当前用户 ID，read 状态留空
+        return messageRepository.findGroupHistory(groupId).stream()
+                .map(m -> toVO(m, userRepository.findById(m.getSenderId()).orElse(null), null))
                 .toList();
     }
 
@@ -487,30 +436,5 @@ public class MessageServiceImpl implements MessageService {
                 .mentionUserIds(parseMentions(m.getMentionUserIds()))
                 .audioDuration(m.getAudioDuration())
                 .build();
-    }
-
-    // ==================== 清空聊天记录 ====================
-
-    @Override
-    @Transactional
-    public void clearPrivateHistory(Long userId, Long peerId) {
-        messageRepository.deletePrivateHistory(userId, peerId);
-        // 同时清除已读游标
-        cursorRepository.findByUserIdAndPeerId(userId, peerId)
-                .ifPresent(cursorRepository::delete);
-    }
-
-    @Override
-    @Transactional
-    public void clearGroupHistory(Long groupId, Long userId) {
-        // 校验群成员身份
-        if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, userId)) {
-            throw BusinessException.badRequest("你不在该群中");
-        }
-        // 仅删除当前用户发送的消息
-        messageRepository.deleteGroupHistoryByUser(groupId, userId);
-        // 清除已读游标
-        cursorRepository.findByUserIdAndGroupId(userId, groupId)
-                .ifPresent(cursorRepository::delete);
     }
 }

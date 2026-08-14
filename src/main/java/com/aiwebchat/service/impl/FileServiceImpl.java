@@ -24,19 +24,6 @@ public class FileServiceImpl implements FileService {
     @Value("${app.storage.upload-dir:./uploads}")
     private String uploadDir;
 
-    private static final long MAX_FILE_SIZE = 20 * 1024 * 1024L; // 20MB
-
-    // 允许的文件扩展名白名单
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
-            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
-            ".mp3", ".m4a", ".aac", ".wav",
-            ".mp4", ".webm",
-            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-            ".txt", ".md", ".csv",
-            ".zip", ".rar", ".7z"
-    );
-
-    // 允许的图片扩展名（用于判断 isImage）
     private static final Set<String> IMAGE_EXTENSIONS = Set.of(
             ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"
     );
@@ -47,31 +34,13 @@ public class FileServiceImpl implements FileService {
             throw BusinessException.badRequest("文件不能为空");
         }
 
-        // 文件大小校验（服务端防御，不依赖 Spring 配置）
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw BusinessException.badRequest("文件大小不能超过 20MB");
-        }
-
         try {
             String originalName = file.getOriginalFilename();
             if (originalName == null) {
                 originalName = "unnamed";
             }
 
-            // 清洗原始文件名：只保留文件名部分，去除路径穿越
-            originalName = originalName.replace("\\", "/");
-            int lastSlash = originalName.lastIndexOf('/');
-            if (lastSlash >= 0) {
-                originalName = originalName.substring(lastSlash + 1);
-            }
-
-            String ext = extractExtension(originalName).toLowerCase();
-
-            // 扩展名白名单校验
-            if (!ALLOWED_EXTENSIONS.contains(ext)) {
-                throw BusinessException.badRequest("不支持的文件类型: " + ext);
-            }
-
+            String ext = extractExtension(originalName);
             String storedName = UUID.randomUUID().toString().replace("-", "") + ext;
             String dateDir = java.time.LocalDate.now().toString();
 
@@ -103,7 +72,7 @@ public class FileServiceImpl implements FileService {
                     .build();
         } catch (IOException e) {
             log.error("文件上传失败", e);
-            throw BusinessException.badRequest("文件上传失败，请重试");
+            throw new RuntimeException("文件上传失败: " + e.getMessage());
         }
     }
 

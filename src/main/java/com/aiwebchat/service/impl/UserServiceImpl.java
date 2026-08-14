@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -51,8 +50,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<UserVO> listFriends(Long userId) {
-        // 使用 JOIN 查询，避免逐个 findById（N+1 → 1次查询）
-        return friendshipRepository.findFriendVOsByUserIdAndStatus(userId, Friendship.Status.ACCEPTED);
+        List<Friendship> friendships = friendshipRepository.findByUserIdAndStatus(userId, Friendship.Status.ACCEPTED);
+        return friendships.stream()
+                .map(f -> userRepository.findById(f.getFriendId()).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .map(this::toVO)
+                .toList();
     }
 
     @Override
@@ -150,21 +153,18 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<FriendRequestVO> listPendingRequests(Long currentUserId) {
-        // 使用 JOIN 查询，避免逐个 findById（N+1 → 1次查询）
-        List<Object[]> rows = friendshipRepository.findRequestVOsByFriendIdAndStatus(currentUserId, Friendship.Status.PENDING);
-        return rows.stream()
-                .map(row -> {
-                    UserVO from = (UserVO) row[0];
-                    Long requestId = (Long) row[1];
-                    LocalDateTime createTime = (LocalDateTime) row[2];
+        List<Friendship> requests = friendshipRepository.findByFriendIdAndStatus(currentUserId, Friendship.Status.PENDING);
+        return requests.stream()
+                .map(f -> {
+                    User from = userRepository.findById(f.getUserId()).orElse(null);
                     return FriendRequestVO.builder()
-                            .id(requestId)
-                            .fromUserId(from.getId())
-                            .fromUsername(from.getUsername())
-                            .fromNickname(from.getNickname())
-                            .fromAvatar(from.getAvatar())
-                            .status(Friendship.Status.PENDING)
-                            .createTime(createTime)
+                            .id(f.getId())
+                            .fromUserId(f.getUserId())
+                            .fromUsername(from == null ? null : from.getUsername())
+                            .fromNickname(from == null ? null : from.getNickname())
+                            .fromAvatar(from == null ? null : from.getAvatar())
+                            .status(f.getStatus())
+                            .createTime(f.getCreateTime())
                             .build();
                 })
                 .sorted(Comparator.comparing(FriendRequestVO::getCreateTime).reversed())

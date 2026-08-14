@@ -53,39 +53,22 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     public List<GroupVO> listMyGroups(Long userId) {
-        List<ChatGroup> groups = groupRepository.findGroupsByMemberUserId(userId);
-        if (groups.isEmpty()) return List.of();
-
-        // 批量查询所有群的成员数（N+1 → 1次查询）
-        List<Long> groupIds = groups.stream().map(ChatGroup::getId).toList();
-        Map<Long, Long> countMap = new java.util.HashMap<>();
-        for (Object[] row : groupMemberRepository.countMembersByGroupIds(groupIds)) {
-            countMap.put((Long) row[0], (Long) row[1]);
-        }
-
-        return groups.stream()
-                .map(g -> GroupVO.builder()
-                        .id(g.getId())
-                        .name(g.getName())
-                        .avatar(g.getAvatar())
-                        .ownerId(g.getOwnerId())
-                        .memberCount(countMap.getOrDefault(g.getId(), 0L).intValue())
-                        .createTime(g.getCreateTime())
-                        .build())
+        return groupRepository.findGroupsByMemberUserId(userId).stream()
+                .map(this::toVO)
                 .toList();
     }
 
     @Override
-    public List<UserVO> listMembers(Long groupId, Long requesterId) {
+    public List<UserVO> listMembers(Long groupId) {
         if (!groupRepository.existsById(groupId)) {
             throw BusinessException.notFound("群组不存在");
         }
-        // 权限校验：只有群成员才能查看成员列表
-        if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, requesterId)) {
-            throw BusinessException.badRequest("你不在该群中，无权查看成员列表");
-        }
-        // 使用 JOIN 查询，一次获取所有成员的 UserVO（N+1 → 1次查询）
-        return groupMemberRepository.findMemberVOsByGroupId(groupId);
+        return groupMemberRepository.findByGroupId(groupId).stream()
+                .map(GroupMember::getUserId)
+                .map(userRepository::findById)
+                .flatMap(Optional::stream)
+                .map(this::toUserVO)
+                .toList();
     }
 
     @Override
@@ -260,14 +243,13 @@ public class GroupServiceImpl implements GroupService {
     }
 
     private GroupVO toVO(ChatGroup g) {
-        // 使用 COUNT 查询替代 findByGroupId().size()（避免加载全部成员实体）
-        long memberCount = groupMemberRepository.countByGroupId(g.getId());
+        int memberCount = groupMemberRepository.findByGroupId(g.getId()).size();
         return GroupVO.builder()
                 .id(g.getId())
                 .name(g.getName())
                 .avatar(g.getAvatar())
                 .ownerId(g.getOwnerId())
-                .memberCount((int) memberCount)
+                .memberCount(memberCount)
                 .createTime(g.getCreateTime())
                 .build();
     }
