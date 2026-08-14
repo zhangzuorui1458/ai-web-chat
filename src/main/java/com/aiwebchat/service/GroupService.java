@@ -12,7 +12,7 @@ public interface GroupService {
 
     List<GroupVO> listMyGroups(Long userId);
 
-    List<UserVO> listMembers(Long groupId);
+    List<UserVO> listMembers(Long groupId, Long requesterId);
 
     void updateGroupInfo(Long groupId, Long operatorId, String name, String avatar);
 

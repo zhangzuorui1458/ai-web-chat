@@ -37,9 +37,31 @@ public class MessageController {
         return ResponseEntity.ok(messageService.listPrivateHistory(current.getId(), peerId));
     }
 
+    @GetMapping("/private/page")
+    public ResponseEntity<PagedResult<MessageVO>> privateHistoryPaged(
+            @RequestParam("peerId") Long peerId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "50") int size,
+            HttpServletRequest httpRequest) {
+        User current = CurrentUser.get(httpRequest);
+        return ResponseEntity.ok(messageService.listPrivateHistoryPaged(current.getId(), peerId, page, size));
+    }
+
     @GetMapping("/group")
-    public ResponseEntity<List<MessageVO>> groupHistory(@RequestParam("groupId") Long groupId) {
-        return ResponseEntity.ok(messageService.listGroupHistory(groupId));
+    public ResponseEntity<List<MessageVO>> groupHistory(@RequestParam("groupId") Long groupId,
+                                                          HttpServletRequest httpRequest) {
+        User current = CurrentUser.get(httpRequest);
+        return ResponseEntity.ok(messageService.listGroupHistory(groupId, current.getId()));
+    }
+
+    @GetMapping("/group/page")
+    public ResponseEntity<PagedResult<MessageVO>> groupHistoryPaged(
+            @RequestParam("groupId") Long groupId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "50") int size,
+            HttpServletRequest httpRequest) {
+        User current = CurrentUser.get(httpRequest);
+        return ResponseEntity.ok(messageService.listGroupHistoryPaged(groupId, current.getId(), page, size));
     }
 
     @PostMapping("/upload")
@@ -80,5 +102,23 @@ public class MessageController {
     public ResponseEntity<List<ConversationVO>> conversations(HttpServletRequest httpRequest) {
         User current = CurrentUser.get(httpRequest);
         return ResponseEntity.ok(messageService.listConversations(current.getId()));
+    }
+
+    @DeleteMapping("/history/private")
+    public ResponseEntity<Map<String, String>> clearPrivateHistory(
+            @RequestParam("peerId") Long peerId,
+            HttpServletRequest httpRequest) {
+        User current = CurrentUser.get(httpRequest);
+        messageService.clearPrivateHistory(current.getId(), peerId);
+        return ResponseEntity.ok(Map.of("message", "聊天记录已清空"));
+    }
+
+    @DeleteMapping("/history/group")
+    public ResponseEntity<Map<String, String>> clearGroupHistory(
+            @RequestParam("groupId") Long groupId,
+            HttpServletRequest httpRequest) {
+        User current = CurrentUser.get(httpRequest);
+        messageService.clearGroupHistory(groupId, current.getId());
+        return ResponseEntity.ok(Map.of("message", "聊天记录已清空"));
     }
 }
