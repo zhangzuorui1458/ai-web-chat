@@ -2679,13 +2679,10 @@ async function showMyInfo() {
             buildBubbleColorDot('white', '白') +
             buildBubbleColorDot('blue', '蓝') +
             buildBubbleColorDot('green', '绿') +
-            buildBubbleColorDot('pink', '粉') +
-            buildBubbleColorDot('orange', '橙') +
-            buildBubbleColorDot('purple', '紫') +
-            buildBubbleColorDot('cyber', '⚡') +
-            buildBubbleColorDot('ocean', '🌊') +
-            buildBubbleColorDot('meadow', '🌿') +
-            buildBubbleColorDot('galaxy', '✨') +
+            buildBubbleColorDot('cyber', '⚡', '赛博朋克') +
+            buildBubbleColorDot('ocean', '🌊', '海洋') +
+            buildBubbleColorDot('meadow', '🌿', '田园') +
+            buildBubbleColorDot('galaxy', '✨', '星空') +
         '</div>' +
         '<div class="my-info-actions">' +
             '<button class="my-info-btn favorites" onclick="openFavoritesModal()">⭐ 我的收藏</button>' +
@@ -2702,12 +2699,12 @@ function buildThemeBtn(key) {
         'onclick="applyTheme(\'' + key + '\')">' + cfg.label + '</div>';
 }
 
-function buildBubbleColorDot(key, label) {
+function buildBubbleColorDot(key, label, title) {
     const cfg = BUBBLE_COLORS[key] || BUBBLE_COLORS.green;
     const selected = (localStorage.getItem('bubbleColor') || 'green') === key;
     return '<div class="bubble-color-dot' + (selected ? ' selected' : '') + '" data-color="' + key + '" ' +
         'style="background:' + bubbleBackground(key) + ';color:' + cfg.text + ';" ' +
-        'onclick="applyBubbleColor(\'' + key + '\')" title="' + label + '">' + label + '</div>';
+        'onclick="applyBubbleColor(\'' + key + '\')" title="' + (title || label) + '">' + label + '</div>';
 }
 
 function confirmLogout() {
@@ -3022,9 +3019,6 @@ const BUBBLE_COLORS = {
     white:  { type: 'solid',    stops: ['#FFFFFF'],                        text: '#1F2329', shadow: '255, 255, 255' },
     blue:   { type: 'solid',    stops: ['#4A90E2'],                        text: '#FFFFFF', shadow: '74, 144, 226' },
     green:  { type: 'solid',    stops: ['#95EC69'],                        text: '#1F2329', shadow: '149, 236, 105' },
-    pink:   { type: 'solid',    stops: ['#FF9EC7'],                        text: '#4A1F33', shadow: '255, 158, 199' },
-    orange: { type: 'solid',    stops: ['#FFB35C'],                        text: '#4A2C10', shadow: '255, 179, 92' },
-    purple: { type: 'solid',    stops: ['#B89AFF'],                        text: '#FFFFFF', shadow: '184, 154, 255' },
     // 渐变
     cyber:  { type: 'gradient', stops: ['#FF2E97', '#7C4DFF', '#00E5FF'], text: '#FFFFFF', shadow: '124, 77, 255' },
     ocean:  { type: 'gradient', stops: ['#2E9FFF', '#0066FF', '#0051D5'], text: '#FFFFFF', shadow: '0, 102, 255' },
