@@ -3014,13 +3014,28 @@ document.getElementById('badge-requests').parentElement.addEventListener('click'
 // ================================================================
 // 主题 & 气泡颜色（提前执行，避免页面闪烁）
 const BUBBLE_COLORS = {
-    white:  { value: '#ffffff', text: '#1f2329', rgb: '255, 255, 255' },
-    blue:   { value: '#4a90e2', text: '#ffffff', rgb: '74, 144, 226' },
-    green:  { value: '#95EC69', text: '#1f2329', rgb: '149, 236, 105' },
-    pink:   { value: '#FF9EC7', text: '#4a1f33', rgb: '255, 158, 199' },
-    orange: { value: '#FFB35C', text: '#4a2c10', rgb: '255, 179, 92' },
-    purple: { value: '#B89AFF', text: '#ffffff', rgb: '184, 154, 255' }
+    // 纯色
+    white:  { type: 'solid',    stops: ['#FFFFFF'],                        text: '#1F2329', shadow: '255, 255, 255' },
+    blue:   { type: 'solid',    stops: ['#4A90E2'],                        text: '#FFFFFF', shadow: '74, 144, 226' },
+    green:  { type: 'solid',    stops: ['#95EC69'],                        text: '#1F2329', shadow: '149, 236, 105' },
+    pink:   { type: 'solid',    stops: ['#FF9EC7'],                        text: '#4A1F33', shadow: '255, 158, 199' },
+    orange: { type: 'solid',    stops: ['#FFB35C'],                        text: '#4A2C10', shadow: '255, 179, 92' },
+    purple: { type: 'solid',    stops: ['#B89AFF'],                        text: '#FFFFFF', shadow: '184, 154, 255' },
+    // 渐变
+    cyber:  { type: 'gradient', stops: ['#FF2E97', '#7C4DFF', '#00E5FF'], text: '#FFFFFF', shadow: '124, 77, 255' },
+    ocean:  { type: 'gradient', stops: ['#2E9FFF', '#0066FF', '#0051D5'], text: '#FFFFFF', shadow: '0, 102, 255' },
+    meadow: { type: 'gradient', stops: ['#9CCC65', '#7CB342', '#689F38'], text: '#FFFFFF', shadow: '124, 179, 66' },
+    galaxy: { type: 'gradient', stops: ['#7C4DFF', '#5B7CFF', '#40C4FF'], text: '#FFFFFF', shadow: '91, 124, 255' }
 };
+
+/** 生成气泡背景值：纯色返回 hex，渐变返回 135° 三停点 linear-gradient；未知 key 回退 green。 */
+function bubbleBackground(colorKey) {
+    const cfg = BUBBLE_COLORS[colorKey] || BUBBLE_COLORS.green;
+    if (cfg.type === 'gradient') {
+        return 'linear-gradient(135deg, ' + cfg.stops[0] + ' 0%, ' + cfg.stops[1] + ' 55%, ' + cfg.stops[2] + ' 100%)';
+    }
+    return cfg.stops[0];
+}
 
 // 主题定义表：name/label/是否暗色基底/安卓状态栏色
 const THEMES = {
