@@ -2699,10 +2699,10 @@ function buildThemeBtn(key) {
 }
 
 function buildBubbleColorDot(key, label) {
-    const cfg = BUBBLE_COLORS[key];
+    const cfg = BUBBLE_COLORS[key] || BUBBLE_COLORS.green;
     const selected = (localStorage.getItem('bubbleColor') || 'green') === key;
     return '<div class="bubble-color-dot' + (selected ? ' selected' : '') + '" data-color="' + key + '" ' +
-        'style="background:' + cfg.value + ';color:' + cfg.text + ';" ' +
+        'style="background:' + bubbleBackground(key) + ';color:' + cfg.text + ';" ' +
         'onclick="applyBubbleColor(\'' + key + '\')" title="' + label + '">' + label + '</div>';
 }
 
@@ -3053,8 +3053,8 @@ const THEMES = {
         if (theme === 'pastoral') document.body.classList.add('theme-pastoral');
         const bubble = localStorage.getItem('bubbleColor') || 'green';
         const cfg = BUBBLE_COLORS[bubble] || BUBBLE_COLORS.green;
-        document.documentElement.style.setProperty('--bubble-mine', cfg.value);
-        document.documentElement.style.setProperty('--bubble-mine-rgb', cfg.rgb);
+        document.documentElement.style.setProperty('--bubble-mine', bubbleBackground(bubble));
+        document.documentElement.style.setProperty('--bubble-mine-rgb', cfg.shadow);
         document.documentElement.style.setProperty('--text-bubble-mine', cfg.text);
         // 页面加载后通知原生状态栏当前主题色
         notifyNativeStatusBar(theme);
@@ -3090,9 +3090,9 @@ function notifyNativeStatusBar(theme) {
 
 function applyBubbleColor(colorKey) {
     const cfg = BUBBLE_COLORS[colorKey] || BUBBLE_COLORS.green;
-    localStorage.setItem('bubbleColor', colorKey);
-    document.documentElement.style.setProperty('--bubble-mine', cfg.value);
-    document.documentElement.style.setProperty('--bubble-mine-rgb', cfg.rgb);
+    localStorage.setItem('bubbleColor', BUBBLE_COLORS[colorKey] ? colorKey : 'green');
+    document.documentElement.style.setProperty('--bubble-mine', bubbleBackground(colorKey));
+    document.documentElement.style.setProperty('--bubble-mine-rgb', cfg.shadow);
     document.documentElement.style.setProperty('--text-bubble-mine', cfg.text);
     // 刷新选中态
     document.querySelectorAll('.bubble-color-dot').forEach(el => {
