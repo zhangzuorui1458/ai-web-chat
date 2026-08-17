@@ -141,6 +141,112 @@ body.theme-dark {
     --shadow-pop: 0 12px 40px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.08);
 }
 
+/* 科技风主题（暗色基底：挂 theme-dark + theme-tech 双类，继承全部暗色组件样式） */
+body.theme-tech {
+    --bg-page: #0A0E1A;
+    --bg-page-grad: radial-gradient(1000px 700px at 85% -10%, rgba(0,229,255,0.08) 0%, rgba(0,229,255,0) 55%),
+                    radial-gradient(900px 700px at -10% 110%, rgba(124,77,255,0.08) 0%, rgba(124,77,255,0) 55%),
+                    #0A0E1A;
+    --bg-navbar: rgba(16, 23, 41, 0.78);
+    --bg-navbar-solid: #101729;
+    --bg-sidebar: rgba(13, 18, 32, 0.78);
+    --bg-sidebar-solid: #0D1220;
+    --bg-chat-grad: radial-gradient(1000px 700px at 100% 0%, rgba(0,229,255,0.06) 0%, rgba(0,229,255,0) 55%),
+                    radial-gradient(900px 700px at 0% 200%, rgba(124,77,255,0.06) 0%, rgba(124,77,255,0) 55%),
+                    #0C1222;
+    --bg-chat-pattern: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='20' cy='20' r='0.8' fill='%2300E5FF' fill-opacity='0.03'/%3E%3C/svg%3E");
+    --bg-header: rgba(13, 18, 32, 0.78);
+    --bg-header-solid: #0D1220;
+    --bg-input-area: rgba(16, 23, 41, 0.86);
+    --bg-input-area-solid: #101729;
+    --bg-input-box: #131C33;
+    --bg-bubble-other: #151B2E;
+    --bg-conv-hover: rgba(0, 229, 255, 0.06);
+    --bg-conv-active: rgba(0, 229, 255, 0.16);
+    --bg-modal: rgba(16, 23, 41, 0.96);
+    --bg-search-bar: rgba(0, 229, 255, 0.08);
+    --bg-toast: rgba(20, 28, 48, 0.95);
+
+    --text-primary: #E8F1FF;
+    --text-secondary: #8FA3C8;
+    --text-muted: #5B6B8C;
+
+    --border: #26314E;
+    --border-light: #1C2740;
+    --scrollbar: rgba(0, 229, 255, 0.18);
+
+    --accent: #00E5FF;
+    --accent-rgb: 0, 229, 255;
+    --accent-dark: #4DEBFF;
+    --accent-grad: linear-gradient(135deg, #4DEBFF 0%, #00C2E0 55%, #0090C0 100%);
+
+    --color-green: #00E676;
+    --color-orange: #FFAB40;
+    --color-red: #FF5252;
+    --color-purple: #B388FF;
+
+    --shadow-soft: 0 1px 2px rgba(0,10,30,0.4), 0 4px 16px rgba(0,10,30,0.5);
+    --shadow-card: 0 8px 32px rgba(0,10,30,0.6), 0 0 0 0.5px rgba(0,229,255,0.08);
+    --shadow-pop: 0 12px 40px rgba(0,10,30,0.7), 0 0 0 0.5px rgba(0,229,255,0.10);
+
+    /* 发送按钮：霓虹青渐变 */
+    --send-btn-grad: linear-gradient(135deg, #4DEBFF 0%, #00C2E0 55%, #008FBE 100%);
+    --send-btn-shadow-rgb: 0, 194, 224;
+}
+
+/* 田园风主题（亮色基底：仅挂 theme-pastoral，默认亮色组件生效） */
+body.theme-pastoral {
+    --bg-page: #FAF6EF;
+    --bg-page-grad: radial-gradient(1000px 700px at 85% -10%, rgba(255,167,89,0.10) 0%, rgba(255,167,89,0) 55%),
+                    radial-gradient(900px 700px at -10% 110%, rgba(124,179,66,0.10) 0%, rgba(124,179,66,0) 55%),
+                    #FAF6EF;
+    --bg-navbar: rgba(255, 252, 246, 0.78);
+    --bg-navbar-solid: #FFFCF6;
+    --bg-sidebar: rgba(252, 248, 240, 0.78);
+    --bg-sidebar-solid: #FCF8F0;
+    --bg-chat-grad: radial-gradient(1000px 700px at 100% 0%, rgba(255,167,89,0.08) 0%, rgba(255,167,89,0) 55%),
+                    radial-gradient(920px 720px at 0% 100%, rgba(124,179,66,0.08) 0%, rgba(124,179,66,0) 55%),
+                    #FBF7EF;
+    --bg-chat-pattern: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='20' cy='20' r='0.8' fill='%237CB342' fill-opacity='0.04'/%3E%3C/svg%3E");
+    --bg-header: rgba(252, 248, 240, 0.78);
+    --bg-header-solid: #FCF8F0;
+    --bg-input-area: rgba(255, 252, 246, 0.86);
+    --bg-input-area-solid: #FFFCF6;
+    --bg-input-box: #F1EADC;
+    --bg-bubble-other: #FFFDF8;
+    --bg-conv-hover: rgba(124, 179, 66, 0.07);
+    --bg-conv-active: rgba(124, 179, 66, 0.16);
+    --bg-modal: rgba(255, 252, 246, 0.96);
+    --bg-search-bar: rgba(124, 179, 66, 0.10);
+    --bg-toast: rgba(62, 52, 40, 0.95);
+
+    --text-primary: #3E3428;
+    --text-secondary: #8C7F6D;
+    --text-muted: #B0A693;
+
+    --border: #E3D9C6;
+    --border-light: #EAE2D2;
+    --scrollbar: rgba(62, 52, 40, 0.18);
+
+    --accent: #7CB342;
+    --accent-rgb: 124, 179, 66;
+    --accent-dark: #689F38;
+    --accent-grad: linear-gradient(135deg, #9CCC65 0%, #7CB342 55%, #689F38 100%);
+
+    --color-green: #7CB342;
+    --color-orange: #FFA757;
+    --color-red: #E57373;
+    --color-purple: #BA68C8;
+
+    --shadow-soft: 0 1px 2px rgba(62,52,40,0.06), 0 4px 16px rgba(62,52,40,0.08);
+    --shadow-card: 0 8px 32px rgba(62,52,40,0.10), 0 0 0 0.5px rgba(62,52,40,0.05);
+    --shadow-pop: 0 12px 40px rgba(62,52,40,0.12), 0 0 0 0.5px rgba(62,52,40,0.06);
+
+    /* 发送按钮：抹茶绿渐变 */
+    --send-btn-grad: linear-gradient(135deg, #9CCC65 0%, #7CB342 55%, #689F38 100%);
+    --send-btn-shadow-rgb: 124, 179, 66;
+}
+
 /* ==================== 全局重置 ==================== */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }

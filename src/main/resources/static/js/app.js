@@ -2669,21 +2669,33 @@ async function showMyInfo() {
         '<div id="my-signature" class="signature-box" contenteditable="true" style="outline:none;" onblur="saveMySignature()" data-original="' + escapeHtml(me.signature || '') + '">' + escapeHtml(me.signature || '') + '</div>' +
         '<div class="setting-section-title">主题模式</div>' +
         '<div class="theme-switch-row">' +
-            '<div id="theme-btn-light" class="theme-switch-btn' + ((localStorage.getItem('theme') || 'light') === 'light' ? ' active' : '') + '" onclick="applyTheme(\'light\')">☀️ 白天</div>' +
-            '<div id="theme-btn-dark" class="theme-switch-btn' + (localStorage.getItem('theme') === 'dark' ? ' active' : '') + '" onclick="applyTheme(\'dark\')">🌙 黑夜</div>' +
+            buildThemeBtn('light') +
+            buildThemeBtn('dark') +
+            buildThemeBtn('tech') +
+            buildThemeBtn('pastoral') +
         '</div>' +
         '<div class="setting-section-title">气泡颜色</div>' +
         '<div class="bubble-color-row">' +
             buildBubbleColorDot('white', '白') +
-            buildBubbleColorDot('gray', '灰') +
             buildBubbleColorDot('blue', '蓝') +
             buildBubbleColorDot('green', '绿') +
+            buildBubbleColorDot('pink', '粉') +
+            buildBubbleColorDot('orange', '橙') +
+            buildBubbleColorDot('purple', '紫') +
         '</div>' +
         '<div class="my-info-actions">' +
             '<button class="my-info-btn favorites" onclick="openFavoritesModal()">⭐ 我的收藏</button>' +
             '<button class="my-info-btn logout" onclick="confirmLogout()">退出登录</button>' +
         '</div>';
     openModal(html);
+}
+
+// 构建主题切换按钮（带选中态）
+function buildThemeBtn(key) {
+    const cfg = THEMES[key] || THEMES.light;
+    const current = localStorage.getItem('theme') || 'light';
+    return '<div class="theme-switch-btn' + (current === key ? ' active' : '') + '" data-theme="' + key + '" ' +
+        'onclick="applyTheme(\'' + key + '\')">' + cfg.label + '</div>';
 }
 
 function buildBubbleColorDot(key, label) {
@@ -3003,15 +3015,27 @@ document.getElementById('badge-requests').parentElement.addEventListener('click'
 // 主题 & 气泡颜色（提前执行，避免页面闪烁）
 const BUBBLE_COLORS = {
     white:  { value: '#ffffff', text: '#1f2329', rgb: '255, 255, 255' },
-    gray:   { value: '#dcdcdc', text: '#1f2329', rgb: '220, 220, 220' },
     blue:   { value: '#4a90e2', text: '#ffffff', rgb: '74, 144, 226' },
-    green:  { value: '#95EC69', text: '#1f2329', rgb: '149, 236, 105' }
+    green:  { value: '#95EC69', text: '#1f2329', rgb: '149, 236, 105' },
+    pink:   { value: '#FF9EC7', text: '#4a1f33', rgb: '255, 158, 199' },
+    orange: { value: '#FFB35C', text: '#4a2c10', rgb: '255, 179, 92' },
+    purple: { value: '#B89AFF', text: '#ffffff', rgb: '184, 154, 255' }
+};
+
+// 主题定义表：name/label/是否暗色基底/安卓状态栏色
+const THEMES = {
+    light:    { label: '☀️ 白天', dark: false, statusBar: '#F5F5F7' },
+    dark:     { label: '🌙 黑夜', dark: true,  statusBar: '#000000' },
+    tech:     { label: '🌌 科技', dark: true,  statusBar: '#0A0E1A' },
+    pastoral: { label: '🌿 田园', dark: false, statusBar: '#FAF6EF' }
 };
 
 (function loadSavedTheme() {
     try {
         const theme = localStorage.getItem('theme') || 'light';
-        if (theme === 'dark') document.body.classList.add('theme-dark');
+        if (theme === 'dark' || theme === 'tech') document.body.classList.add('theme-dark');
+        if (theme === 'tech') document.body.classList.add('theme-tech');
+        if (theme === 'pastoral') document.body.classList.add('theme-pastoral');
         const bubble = localStorage.getItem('bubbleColor') || 'green';
         const cfg = BUBBLE_COLORS[bubble] || BUBBLE_COLORS.green;
         document.documentElement.style.setProperty('--bubble-mine', cfg.value);
@@ -3023,25 +3047,28 @@ const BUBBLE_COLORS = {
 })();
 
 function applyTheme(theme) {
-    localStorage.setItem('theme', theme);
-    if (theme === 'dark') document.body.classList.add('theme-dark');
-    else document.body.classList.remove('theme-dark');
+    const cfg = THEMES[theme] ? theme : 'light';
+    localStorage.setItem('theme', cfg);
+    // 清除所有主题类，再挂当前主题类（tech 挂双类继承暗色组件样式）
+    document.body.classList.remove('theme-dark', 'theme-tech', 'theme-pastoral');
+    if (cfg === 'dark' || cfg === 'tech') document.body.classList.add('theme-dark');
+    if (cfg === 'tech') document.body.classList.add('theme-tech');
+    if (cfg === 'pastoral') document.body.classList.add('theme-pastoral');
     // 刷新"我的"弹窗中的主题按钮选中态
-    const light = document.getElementById('theme-btn-light');
-    const dark = document.getElementById('theme-btn-dark');
-    if (light) light.classList.toggle('active', theme === 'light');
-    if (dark) dark.classList.toggle('active', theme === 'dark');
+    document.querySelectorAll('.theme-switch-btn').forEach(el => {
+        el.classList.toggle('active', el.dataset.theme === cfg);
+    });
     // 通知原生状态栏跟随主题变色
-    notifyNativeStatusBar(theme);
+    notifyNativeStatusBar(cfg);
 }
 
 /** 通知 Android 原生状态栏颜色（跟随主题）。 */
 function notifyNativeStatusBar(theme) {
     try {
         if (window.AndroidBridge && AndroidBridge.setStatusBarColor) {
-            // dark → 纯黑；light → 浅灰（与页面 --bg-page 一致）
-            const color = (theme === 'dark') ? '#000000' : '#F5F5F7';
-            AndroidBridge.setStatusBarColor(color);
+            // 从主题表取状态栏色（与页面 --bg-page 一致），未知主题回退浅色
+            const cfg = (typeof THEMES !== 'undefined' && THEMES[theme]) || THEMES.light;
+            AndroidBridge.setStatusBarColor(cfg.statusBar);
         }
     } catch {}
 }
