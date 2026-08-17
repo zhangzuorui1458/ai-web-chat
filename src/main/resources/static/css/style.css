@@ -1566,7 +1566,7 @@ body.theme-dark .btn-cancel:hover { background: rgba(255,255,255,0.12); }
 }
 .bubble-color-row {
     display: flex; gap: 10px; margin-top: 12px; align-items: center;
-    justify-content: center;
+    justify-content: center; flex-wrap: wrap;
 }
 .bubble-color-dot {
     width: 36px; height: 36px; border-radius: 50%; cursor: pointer;

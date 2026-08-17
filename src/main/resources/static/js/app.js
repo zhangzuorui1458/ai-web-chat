@@ -2682,6 +2682,10 @@ async function showMyInfo() {
             buildBubbleColorDot('pink', '粉') +
             buildBubbleColorDot('orange', '橙') +
             buildBubbleColorDot('purple', '紫') +
+            buildBubbleColorDot('cyber', '⚡') +
+            buildBubbleColorDot('ocean', '🌊') +
+            buildBubbleColorDot('meadow', '🌿') +
+            buildBubbleColorDot('galaxy', '✨') +
         '</div>' +
         '<div class="my-info-actions">' +
             '<button class="my-info-btn favorites" onclick="openFavoritesModal()">⭐ 我的收藏</button>' +
