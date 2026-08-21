@@ -1763,6 +1763,77 @@ body.theme-dark .btn-cancel:hover { background: rgba(255,255,255,0.12); }
     position: relative;
 }
 
+/* ==================== 我的/设置页 ==================== */
+.me-page {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--bg-page-grad);
+    background-color: var(--bg-page);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 28px max(24px, env(safe-area-inset-left)) 40px;
+}
+.me-header {
+    display: flex; align-items: center; gap: 18px;
+    padding: 8px 4px 20px;
+    border-bottom: 0.5px solid var(--border-light);
+    margin-bottom: 8px;
+}
+.me-avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--accent-grad); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 600; cursor: pointer;
+    box-shadow: var(--shadow-soft); flex-shrink: 0; overflow: hidden;
+    transition: transform 0.2s ease;
+}
+.me-avatar:hover { transform: scale(1.04); }
+.me-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.me-nickname { font-size: 19px; font-weight: 600; color: var(--text-primary); }
+.me-username { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+.me-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+.me-section {
+    margin-top: 22px;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.me-section-title {
+    font-size: 12px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;
+}
+.me-action-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 16px;
+    border: 0.5px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-input-box);
+    color: var(--text-primary); font-size: 14px;
+    cursor: pointer; text-align: left;
+    transition: all 0.2s ease;
+}
+.me-action-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+.me-action-btn.primary {
+    background: var(--accent-grad); color: #fff; border: none;
+    justify-content: center; font-weight: 500;
+    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.35);
+}
+.me-action-btn.danger {
+    color: var(--color-red); justify-content: center;
+    border-color: rgba(255, 69, 58, 0.25);
+}
+.me-action-btn.danger:hover { background: rgba(255, 69, 58, 0.06); border-color: var(--color-red); }
+#change-pwd-box { display: flex; flex-direction: column; gap: 10px; }
+.pwd-input {
+    padding: 11px 14px;
+    border: 0.5px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-input-box);
+    color: var(--text-primary); font-size: 14px;
+    outline: none; transition: border-color 0.2s ease;
+}
+.pwd-input:focus { border-color: var(--accent); }
+
 .eat-header {
     height: 74px;
     display: flex;
@@ -2216,6 +2287,15 @@ body.theme-dark .eat-history-panel { box-shadow: -8px 0 30px rgba(0,0,0,0.4); }
         bottom: calc(60px + env(safe-area-inset-bottom));
         z-index: 15;
     }
+    .me-page {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        bottom: calc(60px + env(safe-area-inset-bottom));
+        z-index: 15;
+        padding: 20px 16px 32px;
+    }
+    .me-avatar { width: 60px; height: 60px; font-size: 24px; }
+    .me-nickname { font-size: 17px; }
     .eat-header { height: 66px; padding: 0 12px; }
     .eat-title { font-size: 19px; }
     .eat-slogan { font-size: 12px; }

@@ -1,11 +1,13 @@
 package com.aiwebchat.controller;
 
+import com.aiwebchat.dto.ChangePasswordRequest;
 import com.aiwebchat.dto.FriendRequestVO;
 import com.aiwebchat.dto.UserVO;
 import com.aiwebchat.entity.User;
 import com.aiwebchat.security.CurrentUser;
 import com.aiwebchat.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -73,5 +75,13 @@ public class UserController {
     public ResponseEntity<List<FriendRequestVO>> pendingRequests(HttpServletRequest request) {
         User current = CurrentUser.get(request);
         return ResponseEntity.ok(userService.listPendingRequests(current.getId()));
+    }
+
+    @PutMapping("/users/me/password")
+    public ResponseEntity<Map<String, String>> changePassword(@Valid @RequestBody ChangePasswordRequest body,
+                                                               HttpServletRequest request) {
+        User current = CurrentUser.get(request);
+        userService.changePassword(current.getId(), body.getOldPassword(), body.getNewPassword());
+        return ResponseEntity.ok(Map.of("message", "密码已修改"));
     }
 }

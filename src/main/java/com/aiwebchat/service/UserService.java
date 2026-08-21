@@ -29,4 +29,7 @@ public interface UserService {
     void updateProfile(Long userId, String signature);
 
     UserVO getCurrentUserInfo(Long userId);
+
+    /** 修改密码：校验原密码，新密码 BCrypt 加密后保存 */
+    void changePassword(Long userId, String oldPassword, String newPassword);
 }

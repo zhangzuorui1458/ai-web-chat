@@ -274,19 +274,27 @@ function switchTab(tab) {
     document.getElementById('nav-session').classList.toggle('active', tab === 'sessions');
     document.getElementById('nav-contacts').classList.toggle('active', tab === 'contacts');
     document.getElementById('nav-eat').classList.toggle('active', tab === 'eat');
+    document.getElementById('nav-me').classList.toggle('active', tab === 'me');
 
-    // 主区域显隐：eat tab 独占，隐藏其他面板
+    // 主区域显隐：eat / me tab 独占，隐藏其他面板
     const isEat = tab === 'eat';
-    document.querySelector('.sidebar').style.display = isEat ? 'none' : '';
-    document.querySelector('.chat-area').style.display = isEat ? 'none' : '';
-    document.getElementById('detail-panel').style.display = isEat ? 'none' : '';
+    const isMe = tab === 'me';
+    const isExclusive = isEat || isMe;
+    document.querySelector('.sidebar').style.display = isExclusive ? 'none' : '';
+    document.querySelector('.chat-area').style.display = isExclusive ? 'none' : '';
+    document.getElementById('detail-panel').style.display = isExclusive ? 'none' : '';
     document.getElementById('eat-page').style.display = isEat ? 'flex' : 'none';
+    document.getElementById('me-page').style.display = isMe ? 'flex' : 'none';
 
     if (isEat) {
         if (!EatState.initialized) {
             initEatPage();
             EatState.initialized = true;
         }
+        return;
+    }
+    if (isMe) {
+        renderMePage();
         return;
     }
 
@@ -2648,46 +2656,92 @@ async function inviteMembers(groupId) {
 
 // 个人信息（头像上传）
 async function showMyInfo() {
-    const me = State.me;
+    switchTab('me');
+    renderMePage();
+}
+
+// 渲染"我的"设置页
+function renderMePage() {
+    const me = State.me || {};
+    const page = document.getElementById('me-page');
+    if (!page) return;
     const avatarHtml = me.avatar
-        ? '<img src="' + me.avatar + '">'
+        ? '<img src="' + escapeAttr(me.avatar) + '">'
         : escapeHtml((me.nickname || me.username || '?').charAt(0).toUpperCase());
 
-    const html = '<h3>个人信息<span class="modal-close" onclick="closeModal()">×</span></h3>' +
-        '<div class="my-info-header">' +
-            '<div id="my-avatar-display" class="my-info-avatar" onclick="document.getElementById(\'avatar-file-input\').click()">' +
-                avatarHtml +
-            '</div>' +
-            '<div class="my-info-meta">' +
-                '<div class="my-info-nickname">' + escapeHtml(me.nickname || '未设置昵称') + '</div>' +
-                '<div class="my-info-username">@' + escapeHtml(me.username || '') + '</div>' +
-                '<div class="my-info-hint">点击头像可更换</div>' +
+    page.innerHTML =
+        '<div class="me-header">' +
+            '<div class="me-avatar" onclick="document.getElementById(\'avatar-file-input\').click()">' + avatarHtml + '</div>' +
+            '<div class="me-meta">' +
+                '<div class="me-nickname">' + escapeHtml(me.nickname || '未设置昵称') + '</div>' +
+                '<div class="me-username">@' + escapeHtml(me.username || '') + '</div>' +
+                '<div class="me-hint">点击头像可更换</div>' +
             '</div>' +
             '<input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="uploadAvatar(this)">' +
         '</div>' +
-        '<div class="setting-section-title">个性签名</div>' +
-        '<div id="my-signature" class="signature-box" contenteditable="true" style="outline:none;" onblur="saveMySignature()" data-original="' + escapeHtml(me.signature || '') + '">' + escapeHtml(me.signature || '') + '</div>' +
-        '<div class="setting-section-title">主题模式</div>' +
-        '<div class="theme-switch-row">' +
-            buildThemeBtn('light') +
-            buildThemeBtn('dark') +
-            buildThemeBtn('tech') +
-            buildThemeBtn('pastoral') +
+
+        '<div class="me-section">' +
+            '<div class="me-section-title">个性签名</div>' +
+            '<div id="my-signature" class="signature-box" contenteditable="true" style="outline:none;" onblur="saveMySignature()" data-original="' + escapeHtml(me.signature || '') + '">' + escapeHtml(me.signature || '') + '</div>' +
         '</div>' +
-        '<div class="setting-section-title">气泡颜色</div>' +
-        '<div class="bubble-color-row">' +
-            buildBubbleColorDot('white', '白') +
-            buildBubbleColorDot('blue', '蓝') +
-            buildBubbleColorDot('green', '绿') +
-            buildBubbleColorDot('cyber', '⚡', '赛博朋克') +
-            buildBubbleColorDot('meadow', '🌿', '田园') +
-            buildBubbleColorDot('galaxy', '✨', '星空') +
+
+        '<div class="me-section">' +
+            '<div class="me-section-title">主题模式</div>' +
+            '<div class="theme-switch-row">' +
+                buildThemeBtn('light') + buildThemeBtn('dark') + buildThemeBtn('tech') + buildThemeBtn('pastoral') +
+            '</div>' +
         '</div>' +
-        '<div class="my-info-actions">' +
-            '<button class="my-info-btn favorites" onclick="openFavoritesModal()">⭐ 我的收藏</button>' +
-            '<button class="my-info-btn logout" onclick="confirmLogout()">退出登录</button>' +
+
+        '<div class="me-section">' +
+            '<div class="me-section-title">气泡颜色</div>' +
+            '<div class="bubble-color-row">' +
+                buildBubbleColorDot('white', '白') +
+                buildBubbleColorDot('blue', '蓝') +
+                buildBubbleColorDot('green', '绿') +
+                buildBubbleColorDot('tech', '🌌', '科技') +
+                buildBubbleColorDot('pastoral', '🌿', '田园') +
+                buildBubbleColorDot('cyber', '⚡', '赛博朋克') +
+                buildBubbleColorDot('ocean', '🌊', '海洋') +
+            '</div>' +
+        '</div>' +
+
+        '<div class="me-section">' +
+            '<div class="me-section-title">账号与安全</div>' +
+            '<button class="me-action-btn" onclick="toggleChangePwdBox()">🔑 修改密码</button>' +
+            '<div id="change-pwd-box" style="display:none;">' +
+                '<input type="password" id="pwd-old" class="pwd-input" placeholder="原密码">' +
+                '<input type="password" id="pwd-new" class="pwd-input" placeholder="新密码（6-32位）">' +
+                '<button class="me-action-btn primary" onclick="doChangePassword()">确认修改</button>' +
+            '</div>' +
+            '<button class="me-action-btn" onclick="openFavoritesModal()">⭐ 我的收藏</button>' +
+        '</div>' +
+
+        '<div class="me-section">' +
+            '<button class="me-action-btn danger" onclick="confirmLogout()">退出登录</button>' +
         '</div>';
-    openModal(html);
+}
+
+// 展开/收起修改密码输入框
+function toggleChangePwdBox() {
+    const box = document.getElementById('change-pwd-box');
+    if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+// 提交修改密码
+async function doChangePassword() {
+    const oldPwd = document.getElementById('pwd-old').value;
+    const newPwd = document.getElementById('pwd-new').value;
+    if (!oldPwd || !newPwd) { showToast('请填写完整'); return; }
+    if (newPwd.length < 6 || newPwd.length > 32) { showToast('新密码需 6-32 位'); return; }
+    try {
+        await apiPut('/api/users/me/password', { oldPassword: oldPwd, newPassword: newPwd });
+        showToast('密码修改成功');
+        toggleChangePwdBox();
+        document.getElementById('pwd-old').value = '';
+        document.getElementById('pwd-new').value = '';
+    } catch (e) {
+        showToast(e.message || '修改失败');
+    }
 }
 
 // 构建主题切换按钮（带选中态）
@@ -2852,11 +2906,8 @@ async function uploadAvatar(input) {
         State.me.avatar = resp.url;
         localStorage.setItem('me', JSON.stringify(State.me));
         renderNavAvatar();
-        // 更新弹窗内头像
-        const display = document.getElementById('my-avatar-display');
-        if (display) {
-            display.innerHTML = '<img src="' + resp.url + '" style="width:100%;height:100%;object-fit:cover;">';
-        }
+        // 更新设置页内头像
+        renderMePage();
         showToast('头像更新成功');
     } catch (e) {
         showToast(e.message);
@@ -2992,6 +3043,9 @@ window.rejectInvitation = rejectInvitation;
 window.createGroup = createGroup;
 window.inviteMembers = inviteMembers;
 window.showMyInfo = showMyInfo;
+window.renderMePage = renderMePage;
+window.toggleChangePwdBox = toggleChangePwdBox;
+window.doChangePassword = doChangePassword;
 window.uploadAvatar = uploadAvatar;
 window.recallMessage = recallMessage;
 window.deleteMessage = deleteMessage;
@@ -3015,13 +3069,14 @@ document.getElementById('badge-requests').parentElement.addEventListener('click'
 // 主题 & 气泡颜色（提前执行，避免页面闪烁）
 const BUBBLE_COLORS = {
     // 纯色
-    white:  { type: 'solid',    stops: ['#FFFFFF'],                        text: '#1F2329', shadow: '255, 255, 255' },
-    blue:   { type: 'solid',    stops: ['#4A90E2'],                        text: '#FFFFFF', shadow: '74, 144, 226' },
-    green:  { type: 'solid',    stops: ['#95EC69'],                        text: '#1F2329', shadow: '149, 236, 105' },
-    // 渐变
-    cyber:  { type: 'gradient', stops: ['#FF2E97', '#7C4DFF', '#00E5FF'], text: '#FFFFFF', shadow: '124, 77, 255' },
-    meadow: { type: 'gradient', stops: ['#9CCC65', '#7CB342', '#689F38'], text: '#FFFFFF', shadow: '124, 179, 66' },
-    galaxy: { type: 'gradient', stops: ['#7C4DFF', '#5B7CFF', '#40C4FF'], text: '#FFFFFF', shadow: '91, 124, 255' }
+    white:    { type: 'solid',    stops: ['#FFFFFF'],                        text: '#1F2329', shadow: '255, 255, 255' },
+    blue:     { type: 'solid',    stops: ['#4A90E2'],                        text: '#FFFFFF', shadow: '74, 144, 226' },
+    green:    { type: 'solid',    stops: ['#95EC69'],                        text: '#1F2329', shadow: '149, 236, 105' },
+    // 渐变（风格化）
+    tech:     { type: 'gradient', stops: ['#4DEBFF', '#00C2E0', '#0077B6'], text: '#0A1A24', shadow: '0, 194, 224' },
+    pastoral: { type: 'gradient', stops: ['#D9E8B4', '#A3C976', '#7CB342'], text: '#2E3B1F', shadow: '124, 179, 66' },
+    cyber:    { type: 'gradient', stops: ['#FF2A6D', '#BD00FF', '#05D9E8'], text: '#FFFFFF', shadow: '189, 0, 255' },
+    ocean:    { type: 'gradient', stops: ['#48CAE4', '#0096C7', '#023E8A'], text: '#FFFFFF', shadow: '0, 119, 182' }
 };
 
 /** 生成气泡背景值：纯色返回 hex，渐变返回 135° 三停点 linear-gradient；未知 key 回退 green。 */
@@ -3117,6 +3172,11 @@ window.handleNativeBack = function () {
             return true;
         }
         if (typeof State !== 'undefined' && State.currentTab === 'eat') {
+            if (typeof switchTab === 'function') switchTab('sessions');
+            return true;
+        }
+        // 0.5 我的/设置页：切回消息 tab（不退出 app）
+        if (typeof State !== 'undefined' && State.currentTab === 'me') {
             if (typeof switchTab === 'function') switchTab('sessions');
             return true;
         }

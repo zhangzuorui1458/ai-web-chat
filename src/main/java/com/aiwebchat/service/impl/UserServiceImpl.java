@@ -10,6 +10,7 @@ import com.aiwebchat.repository.UserRepository;
 import com.aiwebchat.service.NotifyService;
 import com.aiwebchat.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,8 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     private final UserRepository userRepository;
     private final FriendshipRepository friendshipRepository;
@@ -193,6 +196,17 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserVO getCurrentUserInfo(Long userId) {
         return toVO(getUserById(userId));
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        User user = getUserById(userId);
+        if (!PASSWORD_ENCODER.matches(oldPassword, user.getPassword())) {
+            throw BusinessException.badRequest("原密码不正确");
+        }
+        user.setPassword(PASSWORD_ENCODER.encode(newPassword));
+        userRepository.save(user);
     }
 
     private UserVO toVO(User u) {
